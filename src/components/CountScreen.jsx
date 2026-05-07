@@ -77,6 +77,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
   // ---- 通常モード：長押しでジグル ----
   const startPress = (e) => {
     if (e?.cancelable) e.preventDefault();
+    clearTimeout(pressTimer.current);
     didLong.current = false;
     pressTimer.current = setTimeout(() => { didLong.current = true; setJiggling(true); }, 600);
   };
