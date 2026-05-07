@@ -43,6 +43,7 @@ body {
   max-width: 480px;
   margin: 0 auto;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top);
   background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
 
@@ -64,7 +65,6 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-top: env(safe-area-inset-top); /* ダイナミックアイランド分をここで処理 */
   padding-bottom: 16px;
 }
 
