@@ -110,16 +110,18 @@ export default function App() {
   const screenProps = { categories, products, todayOrders, todayFree, iconPositions, post, savePositions, updateOrderCount, refresh: fetchAll };
 
   return (
-    <div className="app">
-      {error && <div className="error-banner">{error}</div>}
-      <div className={`screen-area ${tab === 'count' ? 'no-scroll' : ''}`} ref={screenAreaRef}>
-        {tab === 'count'     && <CountScreen {...screenProps} />}
-        {tab === 'free'      && <FreeScreen {...screenProps} />}
-        {tab === 'stock'     && <StockScreen {...screenProps} />}
-        {tab === 'receiving' && <ReceivingScreen {...screenProps} />}
-        {tab === 'manage'    && <ManageScreen {...screenProps} />}
+    <>
+      <div className="app">
+        {error && <div className="error-banner">{error}</div>}
+        <div className={`screen-area ${tab === 'count' ? 'no-scroll' : ''}`} ref={screenAreaRef}>
+          {tab === 'count'     && <CountScreen {...screenProps} />}
+          {tab === 'free'      && <FreeScreen {...screenProps} />}
+          {tab === 'stock'     && <StockScreen {...screenProps} />}
+          {tab === 'receiving' && <ReceivingScreen {...screenProps} />}
+          {tab === 'manage'    && <ManageScreen {...screenProps} />}
+        </div>
       </div>
       <NavBar current={tab} onChange={setTab} />
-    </div>
+    </>
   );
 }
