@@ -129,7 +129,7 @@ body {
 /* ラッパー：背景なし、safe-area 分だけ下に余白 */
 .navbar-wrap {
   flex-shrink: 0;
-  padding: 0 16px env(safe-area-inset-bottom);
+  padding: 0 16px 4px;
   user-select: none;
   -webkit-user-select: none;
   z-index: 100;
