@@ -123,6 +123,15 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
     setGhost(null); setFromIdx(-1); setHoverIdx(-1);
   }, [savePositions]);
 
+  // ルーペ・長押しメニューを常時ブロック
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const block = (e) => e.preventDefault();
+    grid.addEventListener('touchstart', block, { passive: false });
+    return () => grid.removeEventListener('touchstart', block);
+  }, []);
+
   // タッチ（iOS, passive: false でスクロールをブロック）
   useEffect(() => {
     const grid = gridRef.current;
@@ -208,11 +217,11 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                         style={{ background: colorOf(p.id), animationDelay: `${(i % 2) * 0.11}s` }}
                         draggable={false}
                         onTouchStart={(e) => { if (jiggling) startDrag(e.touches[0].clientX, e.touches[0].clientY, i, p.id); else startPress(); }}
-                        onTouchEnd={jiggling ? undefined : endPress}
+                        onTouchEnd={(e) => { if (!jiggling) { endPress(); handleTap(p.id); } }}
                         onMouseDown={(e) => { if (jiggling) { e.preventDefault(); startDrag(e.clientX, e.clientY, i, p.id); } else startPress(); }}
                         onMouseUp={jiggling ? undefined : endPress}
                         onMouseLeave={jiggling ? undefined : endPress}
-                        onClick={() => handleTap(p.id)}
+                        onClick={(e) => { if (e.pointerType !== 'touch') handleTap(p.id); }}
                         onContextMenu={(e) => e.preventDefault()}
                       >
                         <span className="icon-letter">{p.name.charAt(0)}</span>
