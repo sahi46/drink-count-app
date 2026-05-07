@@ -62,13 +62,13 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(70px + env(safe-area-inset-bottom));
+  padding-bottom: 16px; /* navbar はフロー内なので clearance 不要、余白のみ */
 }
 
 .screen-area.no-scroll {
   overflow: hidden;
   touch-action: none;
-  padding-bottom: 0; /* count screen は navbar が overlay するので scroll 用 padding 不要 */
+  padding-bottom: 0;
 }
 
 .screen {
@@ -126,17 +126,12 @@ body {
 
 /* ---- NavBar ---- */
 
-/* ラッパー：pill の下の safe-area をガラス素材で埋める */
+/* ラッパー：flex フロー内の最下段、safe-area まで glass で埋める */
 .navbar-wrap {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
+  flex-shrink: 0;
   padding: 0 16px;
   padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(232, 237, 246, 0.68);
+  background: rgba(232, 237, 246, 0.72);
   backdrop-filter: blur(28px) saturate(200%);
   -webkit-backdrop-filter: blur(28px) saturate(200%);
   border-top: 0.5px solid rgba(255, 255, 255, 0.70);
@@ -148,13 +143,14 @@ body {
 /* 浮いている pill 本体 */
 .navbar {
   width: 100%;
+  max-width: 448px;
+  margin: 6px auto;
   height: 62px;
   border-radius: 24px;
   display: flex;
   align-items: stretch;
   padding: 6px;
   gap: 2px;
-  margin: 6px 0;
   background: rgba(255, 255, 255, 0.60);
   border: 1px solid rgba(255, 255, 255, 0.92);
   box-shadow:
@@ -571,13 +567,13 @@ body {
 
 /* ---- Count Screen - Icon Grid ---- */
 
-/* viewport単位で正確に高さを指定（height:100%のpercentage解決バグを回避） */
+/* navbar がフロー内なので screen-area の残り高さをそのまま使う */
 .screen.count-screen {
-  height: calc(100svh - env(safe-area-inset-top));
+  height: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(74px + env(safe-area-inset-bottom)); /* navbar 分を確保 */
+  padding-bottom: 16px;
 }
 
 .count-screen .screen-header { margin-bottom: 24px; }
