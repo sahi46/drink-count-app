@@ -205,7 +205,25 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
             const isHover  = hoverIdx === i && ghost;
 
             return (
-              <div key={i} className={`icon-cell ${isHover ? 'cell-hover' : ''}`}>
+              <div
+                key={i}
+                className={`icon-cell ${isHover ? 'cell-hover' : ''}`}
+                onTouchStart={!p ? startPress : undefined}
+                onTouchEnd={!p ? () => {
+                  if (jiggleRef.current) {
+                    if (!didLong.current) stopJiggling();
+                    didLong.current = false;
+                  } else { endPress(); }
+                } : undefined}
+                onMouseDown={!p ? startPress : undefined}
+                onMouseUp={!p ? () => {
+                  if (jiggleRef.current) {
+                    if (!didLong.current) stopJiggling();
+                    didLong.current = false;
+                  } else { endPress(); }
+                } : undefined}
+                onMouseLeave={!p ? endPress : undefined}
+              >
                 {p ? (
                   <div className={`icon-item ${jiggling ? 'jiggling' : ''}`}>
                     <div className="icon-wrapper" style={{ opacity: dragging ? 0.22 : 1 }}>
@@ -239,25 +257,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                     <div className="icon-label" style={{ opacity: dragging ? 0.22 : 1 }}>{p.name}</div>
                   </div>
                 ) : (
-                  <div
-                    className="icon-empty"
-                    onTouchStart={startPress}
-                    onTouchEnd={() => {
-                      if (jiggleRef.current) {
-                        if (!didLong.current) stopJiggling(); // 短タップのみ終了
-                        didLong.current = false;
-                      } else { endPress(); }
-                    }}
-                    onMouseDown={startPress}
-                    onMouseUp={() => {
-                      if (jiggleRef.current) {
-                        if (!didLong.current) stopJiggling();
-                        didLong.current = false;
-                      } else { endPress(); }
-                    }}
-                    onMouseLeave={endPress}
-                    onContextMenu={(e) => e.preventDefault()}
-                  />
+                  <div className="icon-empty" />
                 )}
               </div>
             );
