@@ -565,6 +565,15 @@ body {
 
 /* ---- Count Screen - Icon Grid ---- */
 
+/* viewport-fit=cover で増えた高さをグリッドで埋める */
+.screen.count-screen {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 16px;
+}
+
 .count-screen .screen-header { margin-bottom: 24px; }
 
 .done-btn {
@@ -585,6 +594,12 @@ body {
 }
 
 .free-grid { gap: 0; }
+
+/* カウント画面のグリッドが残り空間を埋める */
+.count-screen .free-grid {
+  flex: 1;
+  align-content: space-evenly;
+}
 
 .icon-cell {
   display: flex;
