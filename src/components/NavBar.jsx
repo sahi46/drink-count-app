@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 const TABS = [
   { id: 'count',     label: 'カウント', icon: '🍺' },
@@ -12,6 +12,14 @@ export default function NavBar({ current, onChange }) {
   const navRef = useRef(null);
   const [dragging, setDragging] = useState(null); // スライド中の仮タブ
 
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const prevent = (e) => e.preventDefault();
+    el.addEventListener('touchmove', prevent, { passive: false });
+    return () => el.removeEventListener('touchmove', prevent);
+  }, []);
+
   const tabFromPoint = (clientX) => {
     if (!navRef.current) return null;
     for (const el of navRef.current.querySelectorAll('.nav-btn')) {
@@ -22,15 +30,19 @@ export default function NavBar({ current, onChange }) {
   };
 
   const handleTouchStart = (e) => {
+    e.stopPropagation();
     setDragging(tabFromPoint(e.touches[0].clientX));
   };
 
   const handleTouchMove = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
     const id = tabFromPoint(e.touches[0].clientX);
     if (id) setDragging(id);
   };
 
   const handleTouchEnd = (e) => {
+    e.stopPropagation();
     const id = tabFromPoint(e.changedTouches[0].clientX);
     setDragging(null);
     if (id && id !== current) onChange(id);
