@@ -63,6 +63,7 @@ body {
 .screen-area.no-scroll {
   overflow: hidden;
   touch-action: none;
+  padding-bottom: 0; /* count screen は navbar が overlay するので scroll 用 padding 不要 */
 }
 
 .screen {
@@ -565,13 +566,13 @@ body {
 
 /* ---- Count Screen - Icon Grid ---- */
 
-/* viewport-fit=cover で増えた高さをグリッドで埋める */
+/* viewport単位で正確に高さを指定（height:100%のpercentage解決バグを回避） */
 .screen.count-screen {
-  height: 100%;
+  height: calc(100svh - env(safe-area-inset-top));
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  padding-bottom: 16px;
+  padding-bottom: calc(74px + env(safe-area-inset-bottom)); /* navbar 分を確保 */
 }
 
 .count-screen .screen-header { margin-bottom: 24px; }
@@ -598,7 +599,13 @@ body {
 /* カウント画面のグリッドが残り空間を埋める */
 .count-screen .free-grid {
   flex: 1;
-  align-content: start;
+  grid-auto-rows: 1fr; /* 行を均等に分割して空白をなくす */
+}
+
+/* 行高さに合わせてセルの padding を調整 */
+.count-screen .icon-cell {
+  padding: 4px 2px;
+  min-height: 0;
 }
 
 .icon-cell {
