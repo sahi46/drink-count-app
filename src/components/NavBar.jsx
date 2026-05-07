@@ -51,24 +51,26 @@ export default function NavBar({ current, onChange }) {
   const activeTab = dragging ?? current;
 
   return (
-    <nav
-      className="navbar"
+    <div
+      className="navbar-wrap"
       ref={navRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {TABS.map(t => (
-        <button
-          key={t.id}
-          data-id={t.id}
-          className={`nav-btn ${activeTab === t.id ? 'active' : ''}`}
-          onClick={() => onChange(t.id)}
-        >
-          <span className="nav-icon">{t.icon}</span>
-          <span className="nav-label">{t.label}</span>
-        </button>
-      ))}
-    </nav>
+      <nav className="navbar">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            data-id={t.id}
+            className={`nav-btn ${activeTab === t.id ? 'active' : ''}`}
+            onClick={() => onChange(t.id)}
+          >
+            <span className="nav-icon">{t.icon}</span>
+            <span className="nav-label">{t.label}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
   );
 }

@@ -57,7 +57,7 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(62px + env(safe-area-inset-bottom));
+  padding-bottom: calc(70px + env(safe-area-inset-bottom));
 }
 
 .screen-area.no-scroll {
@@ -120,28 +120,41 @@ body {
 
 /* ---- NavBar ---- */
 
-.navbar {
+/* ラッパー：pill の下の safe-area をガラス素材で埋める */
+.navbar-wrap {
   position: fixed;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
-  display: flex;
-  align-items: stretch;
-  padding: 6px 12px;
-  padding-bottom: calc(6px + env(safe-area-inset-bottom));
-  gap: 2px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(28px) saturate(220%);
-  -webkit-backdrop-filter: blur(28px) saturate(220%);
-  border-top: 1px solid rgba(255, 255, 255, 0.90);
-  box-shadow:
-    0 -1px 0 rgba(0, 0, 0, 0.06),
-    0 -4px 20px rgba(0, 0, 0, 0.07);
+  padding: 0 16px;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: rgba(232, 237, 246, 0.68);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.70);
   user-select: none;
   -webkit-user-select: none;
   z-index: 100;
+}
+
+/* 浮いている pill 本体 */
+.navbar {
+  width: 100%;
+  height: 62px;
+  border-radius: 24px;
+  display: flex;
+  align-items: stretch;
+  padding: 6px;
+  gap: 2px;
+  margin: 6px 0;
+  background: rgba(255, 255, 255, 0.60);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.10),
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
 .nav-btn {
@@ -155,8 +168,8 @@ body {
   border: none;
   cursor: pointer;
   color: var(--text-sub);
-  padding: 6px 0;
-  border-radius: 14px;
+  padding: 0;
+  border-radius: 18px;
   transition: color 0.15s, background 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
