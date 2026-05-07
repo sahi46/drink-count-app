@@ -78,7 +78,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
   const startPress = (e) => {
     if (e?.cancelable) e.preventDefault();
     didLong.current = false;
-    pressTimer.current = setTimeout(() => { didLong.current = true; setJiggling(true); }, 400);
+    pressTimer.current = setTimeout(() => { didLong.current = true; setJiggling(true); }, 600);
   };
   const endPress = () => clearTimeout(pressTimer.current);
   const handleTap = (id) => { if (didLong.current || jiggleRef.current) return; updateOrderCount(id, 1); };
