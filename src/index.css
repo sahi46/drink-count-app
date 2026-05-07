@@ -16,7 +16,12 @@
   --glass-shadow:  0 4px 24px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.92);
 }
 
-html, body { height: 100%; }
+html, body {
+  height: 100%;
+  overflow: hidden;
+  /* viewport-fit=cover でアプリ外に body 背景が見えないよう gradient で埋める */
+  background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
+}
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
