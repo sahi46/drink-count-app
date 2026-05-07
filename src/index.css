@@ -600,13 +600,15 @@ body {
 /* カウント画面のグリッドが残り空間を埋める */
 .count-screen .free-grid {
   flex: 1;
-  grid-auto-rows: 1fr; /* 行を均等に分割して空白をなくす */
+  min-height: 0;
+  align-content: stretch;
 }
 
 /* 行高さに合わせてセルの padding を調整 */
 .count-screen .icon-cell {
   padding: 4px 2px;
   min-height: 0;
+  justify-content: center;
 }
 
 .icon-cell {
