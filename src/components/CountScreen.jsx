@@ -242,9 +242,19 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                   <div
                     className="icon-empty"
                     onTouchStart={startPress}
-                    onTouchEnd={() => { if (jiggleRef.current) stopJiggling(); else endPress(); }}
+                    onTouchEnd={() => {
+                      if (jiggleRef.current) {
+                        if (!didLong.current) stopJiggling(); // 短タップのみ終了
+                        didLong.current = false;
+                      } else { endPress(); }
+                    }}
                     onMouseDown={startPress}
-                    onMouseUp={() => { if (jiggleRef.current) stopJiggling(); else endPress(); }}
+                    onMouseUp={() => {
+                      if (jiggleRef.current) {
+                        if (!didLong.current) stopJiggling();
+                        didLong.current = false;
+                      } else { endPress(); }
+                    }}
                     onMouseLeave={endPress}
                     onContextMenu={(e) => e.preventDefault()}
                   />
