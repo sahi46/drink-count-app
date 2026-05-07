@@ -52,13 +52,15 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
   // refs（コールバック内でも最新値を読むため）
   const posRef      = useRef(positions);
   const hoverRef    = useRef(-1);
+  const jiggleRef   = useRef(false);
   const drag        = useRef(null);
   const gridRef     = useRef(null);
   const pressTimer  = useRef(null);
   const didLong     = useRef(false);
 
-  useEffect(() => { posRef.current = positions; },  [positions]);
-  useEffect(() => { hoverRef.current = hoverIdx; }, [hoverIdx]);
+  useEffect(() => { posRef.current  = positions; },  [positions]);
+  useEffect(() => { hoverRef.current  = hoverIdx; }, [hoverIdx]);
+  useEffect(() => { jiggleRef.current = jiggling; }, [jiggling]);
 
   // 商品追加・削除に追従
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
     pressTimer.current = setTimeout(() => { didLong.current = true; setJiggling(true); }, 400);
   };
   const endPress = () => clearTimeout(pressTimer.current);
-  const handleTap = (id) => { if (didLong.current || jiggling) return; updateOrderCount(id, 1); };
+  const handleTap = (id) => { if (didLong.current || jiggleRef.current) return; updateOrderCount(id, 1); };
 
   // ---- 編集モード：ドラッグ ----
   const nearestCell = useCallback((cx, cy) => {
@@ -168,6 +170,9 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
   };
 
   const stopJiggling = () => {
+    clearTimeout(pressTimer.current);
+    didLong.current = false;
+    jiggleRef.current = false;
     setJiggling(false); setGhost(null); setFromIdx(-1); setHoverIdx(-1);
     drag.current = null;
   };
@@ -236,11 +241,11 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                 ) : (
                   <div
                     className="icon-empty"
-                    onTouchStart={!jiggling ? startPress : undefined}
-                    onTouchEnd={() => { if (jiggling) stopJiggling(); else endPress(); }}
-                    onMouseDown={!jiggling ? startPress : undefined}
-                    onMouseUp={() => { if (jiggling) stopJiggling(); else endPress(); }}
-                    onMouseLeave={!jiggling ? endPress : undefined}
+                    onTouchStart={startPress}
+                    onTouchEnd={() => { if (jiggleRef.current) stopJiggling(); else endPress(); }}
+                    onMouseDown={startPress}
+                    onMouseUp={() => { if (jiggleRef.current) stopJiggling(); else endPress(); }}
+                    onMouseLeave={endPress}
                     onContextMenu={(e) => e.preventDefault()}
                   />
                 )}
