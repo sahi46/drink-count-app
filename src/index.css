@@ -598,7 +598,7 @@ body {
 /* カウント画面のグリッドが残り空間を埋める */
 .count-screen .free-grid {
   flex: 1;
-  align-content: space-evenly;
+  align-content: start;
 }
 
 .icon-cell {
