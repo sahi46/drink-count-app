@@ -39,7 +39,7 @@ function buildPositions(saved, prods) {
   return result;
 }
 
-export default function CountScreen({ products, todayOrders, iconPositions, post, updateOrderCount }) {
+export default function CountScreen({ products, todayOrders, iconPositions, savePositions, updateOrderCount }) {
   const orderProds = products.filter(p => p.type === 'order');
   const productIds = orderProds.map(p => p.id).join(',');
 
@@ -65,7 +65,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, post
     setPositions(prev => {
       const next = buildPositions(prev, orderProds);
       posRef.current = next;
-      post('savePositions', { positions: next }).catch(() => {});
+      savePositions(next).catch(() => {});
       return next;
     });
   }, [productIds]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -114,14 +114,14 @@ export default function CountScreen({ products, todayOrders, iconPositions, post
           const next = [...prev];
           [next[d.from], next[to]] = [next[to], next[d.from]];
           posRef.current = next;
-          post('savePositions', { positions: next }).catch(() => {});
+          savePositions(next).catch(() => {});
           return next;
         });
       }
     }
     drag.current = null;
     setGhost(null); setFromIdx(-1); setHoverIdx(-1);
-  }, [post]);
+  }, [savePositions]);
 
   // タッチ（iOS, passive: false でスクロールをブロック）
   useEffect(() => {
@@ -177,7 +177,12 @@ export default function CountScreen({ products, todayOrders, iconPositions, post
           オーダードリンクがありません。<br />管理画面で商品を追加してください。
         </div>
       ) : (
-        <div className="icon-grid free-grid" ref={gridRef} style={{ userSelect: 'none' }}>
+        <div
+          className="icon-grid free-grid"
+          ref={gridRef}
+          style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
           {positions.map((productId, i) => {
             const p        = productId ? orderProds.find(q => q.id === productId) : null;
             const count    = p ? (todayOrders[p.id] || 0) : 0;
@@ -219,7 +224,16 @@ export default function CountScreen({ products, todayOrders, iconPositions, post
                     <div className="icon-label" style={{ opacity: dragging ? 0.22 : 1 }}>{p.name}</div>
                   </div>
                 ) : (
-                  <div className="icon-empty" />
+                  <div
+                    className="icon-empty"
+                    onTouchStart={!jiggling ? startPress : undefined}
+                    onTouchEnd={!jiggling ? endPress : undefined}
+                    onMouseDown={!jiggling ? startPress : undefined}
+                    onMouseUp={!jiggling ? endPress : undefined}
+                    onMouseLeave={!jiggling ? endPress : undefined}
+                    onClick={jiggling ? stopJiggling : undefined}
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
                 )}
               </div>
             );

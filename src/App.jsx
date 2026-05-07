@@ -19,9 +19,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const ordersRef     = useRef({});  // 常に最新のカウント値
-  const saveTimers    = useRef({});  // デバウンスタイマー
-  const pendingIds    = useRef(new Set()); // 保存待ち中の商品ID
+  const ordersRef     = useRef({});
+  const saveTimers    = useRef({});
+  const pendingIds    = useRef(new Set());
+  const saveVersions  = useRef({});
 
   const fetchAll = useCallback(async (silent = false) => {
     try {
@@ -61,21 +62,29 @@ export default function App() {
     return result;
   }, [fetchAll]);
 
+  const savePositions = useCallback(async (positions) => {
+    await gasPost('savePositions', { positions });
+  }, []);
+
   const updateOrderCount = useCallback((productId, delta) => {
     const current = ordersRef.current[productId] ?? 0;
     const next = Math.max(0, current + delta);
     ordersRef.current = { ...ordersRef.current, [productId]: next };
     setTodayOrders({ ...ordersRef.current });
 
-    // デバウンス：連打が止まって500ms後に最終値を一度だけ送信
     pendingIds.current.add(productId);
+    const version = (saveVersions.current[productId] || 0) + 1;
+    saveVersions.current[productId] = version;
     clearTimeout(saveTimers.current[productId]);
     saveTimers.current[productId] = setTimeout(async () => {
       const count = ordersRef.current[productId] ?? 0;
       try {
         await gasPost('updateOrderCount', { productId, count });
       } finally {
-        pendingIds.current.delete(productId);
+        // タイマー待機中に新たなタップがあった場合はpendingを維持
+        if (saveVersions.current[productId] === version) {
+          pendingIds.current.delete(productId);
+        }
       }
     }, 500);
   }, []);
@@ -88,12 +97,12 @@ export default function App() {
     );
   }
 
-  const screenProps = { categories, products, todayOrders, todayFree, iconPositions, post, updateOrderCount, refresh: fetchAll };
+  const screenProps = { categories, products, todayOrders, todayFree, iconPositions, post, savePositions, updateOrderCount, refresh: fetchAll };
 
   return (
     <div className="app">
       {error && <div className="error-banner">{error}</div>}
-      <div className="screen-area">
+      <div className={`screen-area ${tab === 'count' ? 'no-scroll' : ''}`}>
         {tab === 'count'     && <CountScreen {...screenProps} />}
         {tab === 'free'      && <FreeScreen {...screenProps} />}
         {tab === 'stock'     && <StockScreen {...screenProps} />}
