@@ -1,11 +1,10 @@
 import { useRef, useState, useEffect } from 'react';
 
 const TABS = [
-  { id: 'count',     label: 'カウント', icon: '🍺' },
-  { id: 'free',      label: 'フリー',   icon: '🥤' },
-  { id: 'stock',     label: '在庫',     icon: '📦' },
-  { id: 'receiving', label: '入荷',     icon: '📥' },
-  { id: 'manage',    label: '管理',     icon: '⚙️'  },
+  { id: 'count',  label: 'カウント', icon: '🍺' },
+  { id: 'free',   label: 'フリー',   icon: '🥤' },
+  { id: 'stock',  label: '在庫',     icon: '📦' },
+  { id: 'manage', label: '管理',     icon: '⚙️'  },
 ];
 
 export default function NavBar({ current, onChange }) {
