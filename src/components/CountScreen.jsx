@@ -208,21 +208,21 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
               <div
                 key={i}
                 className={`icon-cell ${isHover ? 'cell-hover' : ''}`}
-                onTouchStart={!p ? startPress : undefined}
-                onTouchEnd={!p ? () => {
-                  if (jiggleRef.current) {
+                onTouchStart={startPress}
+                onTouchEnd={() => {
+                  if (!p && jiggleRef.current) {
                     if (!didLong.current) stopJiggling();
                     didLong.current = false;
                   } else { endPress(); }
-                } : undefined}
-                onMouseDown={!p ? startPress : undefined}
-                onMouseUp={!p ? () => {
-                  if (jiggleRef.current) {
+                }}
+                onMouseDown={startPress}
+                onMouseUp={() => {
+                  if (!p && jiggleRef.current) {
                     if (!didLong.current) stopJiggling();
                     didLong.current = false;
                   } else { endPress(); }
-                } : undefined}
-                onMouseLeave={!p ? endPress : undefined}
+                }}
+                onMouseLeave={endPress}
               >
                 {p ? (
                   <div className={`icon-item ${jiggling ? 'jiggling' : ''}`}>
