@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 const COLS = 4;
-const EXTRA_ROWS = 2;
+const MIN_ROWS = 6;
 
 const ICON_COLORS = [
   '#FF6B6B', '#FF9F43', '#FECA57', '#54A0FF',
@@ -31,9 +31,9 @@ function buildPositions(saved, prods) {
     else result.push(id);
   }
 
-  // 末尾に EXTRA_ROWS 行分の空きを確保
+  // 最低 MIN_ROWS 行を確保
   const filled = result.filter(Boolean).length;
-  const minLen = COLS * (Math.ceil(Math.max(filled, 1) / COLS) + EXTRA_ROWS);
+  const minLen = Math.max(COLS * MIN_ROWS, COLS * Math.ceil(Math.max(filled, 1) / COLS));
   while (result.length < minLen) result.push(null);
   while (result.length % COLS !== 0) result.push(null);
   return result;
@@ -73,9 +73,10 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
   const today = new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' });
 
   // ---- 通常モード：長押しでジグル ----
-  const startPress = () => {
+  const startPress = (e) => {
+    if (e?.cancelable) e.preventDefault();
     didLong.current = false;
-    pressTimer.current = setTimeout(() => { didLong.current = true; setJiggling(true); }, 500);
+    pressTimer.current = setTimeout(() => { didLong.current = true; setJiggling(true); }, 400);
   };
   const endPress = () => clearTimeout(pressTimer.current);
   const handleTap = (id) => { if (didLong.current || jiggling) return; updateOrderCount(id, 1); };
@@ -236,11 +237,10 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                   <div
                     className="icon-empty"
                     onTouchStart={!jiggling ? startPress : undefined}
-                    onTouchEnd={!jiggling ? endPress : undefined}
+                    onTouchEnd={() => { if (jiggling) stopJiggling(); else endPress(); }}
                     onMouseDown={!jiggling ? startPress : undefined}
-                    onMouseUp={!jiggling ? endPress : undefined}
+                    onMouseUp={() => { if (jiggling) stopJiggling(); else endPress(); }}
                     onMouseLeave={!jiggling ? endPress : undefined}
-                    onClick={jiggling ? stopJiggling : undefined}
                     onContextMenu={(e) => e.preventDefault()}
                   />
                 )}
