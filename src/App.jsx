@@ -23,6 +23,7 @@ export default function App() {
   const saveTimers    = useRef({});
   const pendingIds    = useRef(new Set());
   const saveVersions  = useRef({});
+  const screenAreaRef = useRef(null);
 
   const fetchAll = useCallback(async (silent = false) => {
     try {
@@ -54,6 +55,15 @@ export default function App() {
     const id = setInterval(() => fetchAll(true), POLL_MS);
     return () => clearInterval(id);
   }, [fetchAll]);
+
+  useEffect(() => {
+    const el = screenAreaRef.current;
+    if (!el) return;
+    if (tab !== 'count') return;
+    const block = (e) => e.preventDefault();
+    el.addEventListener('touchmove', block, { passive: false });
+    return () => el.removeEventListener('touchmove', block);
+  }, [tab]);
 
   const post = useCallback(async (action, payload = {}) => {
     const result = await gasPost(action, payload);
@@ -102,7 +112,7 @@ export default function App() {
   return (
     <div className="app">
       {error && <div className="error-banner">{error}</div>}
-      <div className={`screen-area ${tab === 'count' ? 'no-scroll' : ''}`}>
+      <div className={`screen-area ${tab === 'count' ? 'no-scroll' : ''}`} ref={screenAreaRef}>
         {tab === 'count'     && <CountScreen {...screenProps} />}
         {tab === 'free'      && <FreeScreen {...screenProps} />}
         {tab === 'stock'     && <StockScreen {...screenProps} />}
