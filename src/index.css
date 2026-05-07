@@ -38,12 +38,8 @@ body {
   max-width: 480px;
   margin: 0 auto;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 20% 10%, rgba(120, 160, 255, 0.28) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 0%, rgba(180, 130, 255, 0.22) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 100%, rgba(100, 220, 180, 0.18) 0%, transparent 55%),
-    #eef2ff;
-  background-attachment: fixed;
+  padding-top: env(safe-area-inset-top);
+  background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
 
 .app-loading {
@@ -51,7 +47,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #eef2ff;
+  background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
 
 .loading-text { font-size: 1rem; color: var(--text-sub); }
