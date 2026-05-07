@@ -196,7 +196,11 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
         <div
           className="icon-grid free-grid"
           ref={gridRef}
-          style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+          style={{
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            gridTemplateRows: `repeat(${Math.ceil(positions.length / COLS)}, 1fr)`,
+          }}
           onContextMenu={(e) => e.preventDefault()}
         >
           {positions.map((productId, i) => {
