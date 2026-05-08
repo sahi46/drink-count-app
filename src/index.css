@@ -45,7 +45,7 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--keyboard-h, 0px);
   display: flex;
   flex-direction: column;
   max-width: 480px;
@@ -800,8 +800,14 @@ body {
   -webkit-user-select: none;
 }
 
-.free-row-hover    { background: rgba(0, 122, 255, 0.10); }
 .free-row-dragging { opacity: 0.35; }
+
+.free-drop-line {
+  height: 3px;
+  background: var(--primary);
+  border-radius: 2px;
+  margin: 2px 8px;
+}
 
 .free-row-grip {
   font-size: 1.1rem;

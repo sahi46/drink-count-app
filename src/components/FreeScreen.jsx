@@ -55,74 +55,75 @@ export default function FreeScreen({ products, todayFree }) {
 
   // Enter キーで次フィールドへ
   const inputRefs = useRef([]);
-  const handleKey = (e, idx) => {
+  const handleKey = (e, idx, isLast) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    inputRefs.current[idx + 1]?.focus();
+    if (isLast) {
+      e.target.blur();
+    } else {
+      inputRefs.current[idx + 1]?.focus();
+    }
   };
 
-  // ドラッグ並べ替え
-  const [dragIdx,  setDragIdx]  = useState(-1);
-  const [hoverIdx, setHoverIdx] = useState(-1);
-  const [ghostY,   setGhostY]   = useState(null);
-  const hoverRef  = useRef(-1);
+  // ---- ドラッグ並べ替え（グリップ即ドラッグ・間に挿入）----
+  const [dragIdx, setDragIdx] = useState(-1);
+  const [gapIdx,  setGapIdx]  = useState(-1);
+  const [ghostY,  setGhostY]  = useState(null);
+  const gapRef    = useRef(-1);
   const dragState = useRef(null);
   const listRef   = useRef(null);
-  const pressTimer = useRef(null);
 
-  const nearestRow = useCallback((cy) => {
-    if (!listRef.current) return -1;
-    let best = -1, minD = Infinity;
-    listRef.current.querySelectorAll('.free-row').forEach((el, i) => {
-      const r   = el.getBoundingClientRect();
-      const mid = r.top + r.height / 2;
-      const d   = Math.abs(cy - mid);
+  const nearestGap = useCallback((cy) => {
+    if (!listRef.current) return 0;
+    const rows = [...listRef.current.querySelectorAll('.free-row')];
+    if (rows.length === 0) return 0;
+    const gaps = [rows[0].getBoundingClientRect().top];
+    for (let i = 0; i < rows.length - 1; i++) {
+      const a = rows[i].getBoundingClientRect().bottom;
+      const b = rows[i + 1].getBoundingClientRect().top;
+      gaps.push((a + b) / 2);
+    }
+    gaps.push(rows[rows.length - 1].getBoundingClientRect().bottom);
+    let best = 0, minD = Infinity;
+    gaps.forEach((y, i) => {
+      const d = Math.abs(cy - y);
       if (d < minD) { minD = d; best = i; }
     });
     return best;
   }, []);
 
-  const moveRow = useCallback((cy) => {
-    const d = dragState.current;
-    if (!d) return;
-    if (!d.active) {
-      if (Math.abs(cy - d.sy) < 8) return;
-      d.active = true;
-    }
+  const moveDrag = useCallback((cy) => {
+    if (!dragState.current) return;
     setGhostY(cy);
-    const to = nearestRow(cy);
-    const h  = to !== d.from ? to : -1;
-    hoverRef.current = h;
-    setHoverIdx(h);
-  }, [nearestRow]);
+    const gap = nearestGap(cy);
+    gapRef.current = gap;
+    setGapIdx(gap);
+  }, [nearestGap]);
 
-  const commitRow = useCallback(() => {
+  const commitDrag = useCallback(() => {
     const d = dragState.current;
     if (!d) return;
-    if (d.active) {
-      const to = hoverRef.current;
-      if (to !== -1 && to !== d.from) {
-        setOrder(prev => {
-          const next = [...prev];
-          [next[d.from], next[to]] = [next[to], next[d.from]];
-          return next;
-        });
-      }
+    const gap = gapRef.current;
+    if (gap !== -1 && gap !== d.from && gap !== d.from + 1) {
+      setOrder(prev => {
+        const next = [...prev];
+        const [item] = next.splice(d.from, 1);
+        const insertAt = gap > d.from ? gap - 1 : gap;
+        next.splice(insertAt, 0, item);
+        return next;
+      });
     }
     dragState.current = null;
     setGhostY(null);
     setDragIdx(-1);
-    hoverRef.current = -1;
-    setHoverIdx(-1);
+    gapRef.current = -1;
+    setGapIdx(-1);
   }, []);
 
   useEffect(() => {
     if (dragIdx === -1) return;
-    const mv = (e) => {
-      e.preventDefault();
-      moveRow(e.touches ? e.touches[0].clientY : e.clientY);
-    };
-    const up = () => commitRow();
+    const mv = (e) => { e.preventDefault(); moveDrag(e.touches ? e.touches[0].clientY : e.clientY); };
+    const up = () => commitDrag();
     document.addEventListener('touchmove', mv, { passive: false });
     document.addEventListener('touchend',  up);
     document.addEventListener('mousemove', mv);
@@ -133,18 +134,17 @@ export default function FreeScreen({ products, todayFree }) {
       document.removeEventListener('mousemove', mv);
       document.removeEventListener('mouseup',   up);
     };
-  }, [dragIdx, moveRow, commitRow]);
+  }, [dragIdx, moveDrag, commitDrag]);
 
-  const startPress = (e, idx) => {
-    if (e.target.tagName === 'INPUT') return;
+  const startDrag = (e, idx) => {
+    e.preventDefault();
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    clearTimeout(pressTimer.current);
-    pressTimer.current = setTimeout(() => {
-      dragState.current = { from: idx, active: false, sy: cy };
-      setDragIdx(idx);
-    }, 600);
+    dragState.current = { from: idx };
+    gapRef.current = -1;
+    setDragIdx(idx);
+    setGhostY(cy);
+    setGapIdx(-1);
   };
-  const endPress = () => clearTimeout(pressTimer.current);
 
   const orderedProds = order.map(id => freeProds.find(p => p.id === id)).filter(Boolean);
   const today = new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' });
@@ -153,50 +153,55 @@ export default function FreeScreen({ products, todayFree }) {
     const data = type === 'before' ? beforeData : afterData;
     return (
       <div ref={listRef}>
-        {orderedProds.map((p, idx) => (
-          <div
-            key={p.id}
-            className={`free-row${hoverIdx === idx ? ' free-row-hover' : ''}${dragIdx === idx ? ' free-row-dragging' : ''}`}
-            onTouchStart={(e) => startPress(e, idx)}
-            onTouchEnd={endPress}
-            onMouseDown={(e) => startPress(e, idx)}
-            onMouseUp={endPress}
-            onMouseLeave={endPress}
-          >
-            <div className="free-row-grip">⠿</div>
-            <div className="free-row-name">{p.name}</div>
-            <div className="free-row-inputs">
-              <div className="free-row-field">
-                <input
-                  ref={el => { inputRefs.current[idx * 2] = el; }}
-                  className="free-row-input"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  value={(data[p.id] || {}).count || ''}
-                  onChange={e => setField(type, p.id, 'count', e.target.value)}
-                  onKeyDown={e => handleKey(e, idx * 2)}
-                  placeholder="0"
-                />
-                <span className="free-row-unit">個</span>
-              </div>
-              <div className="free-row-field">
-                <input
-                  ref={el => { inputRefs.current[idx * 2 + 1] = el; }}
-                  className="free-row-input"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  value={(data[p.id] || {}).ml || ''}
-                  onChange={e => setField(type, p.id, 'ml', e.target.value)}
-                  onKeyDown={e => handleKey(e, idx * 2 + 1)}
-                  placeholder="0"
-                />
-                <span className="free-row-unit">ml</span>
+        {orderedProds.map((p, idx) => {
+          const isLastProd = idx === orderedProds.length - 1;
+          return (
+            <div key={p.id}>
+              {dragIdx !== -1 && gapIdx === idx && <div className="free-drop-line" />}
+              <div className={`free-row${dragIdx === idx ? ' free-row-dragging' : ''}`}>
+                <div
+                  className="free-row-grip"
+                  onTouchStart={(e) => startDrag(e, idx)}
+                  onMouseDown={(e) => startDrag(e, idx)}
+                >⠿</div>
+                <div className="free-row-name">{p.name}</div>
+                <div className="free-row-inputs">
+                  <div className="free-row-field">
+                    <input
+                      ref={el => { inputRefs.current[idx * 2] = el; }}
+                      className="free-row-input"
+                      type="number"
+                      inputMode="numeric"
+                      enterKeyHint="next"
+                      min="0"
+                      value={(data[p.id] || {}).count || ''}
+                      onChange={e => setField(type, p.id, 'count', e.target.value)}
+                      onKeyDown={e => handleKey(e, idx * 2, false)}
+                      placeholder="0"
+                    />
+                    <span className="free-row-unit">個</span>
+                  </div>
+                  <div className="free-row-field">
+                    <input
+                      ref={el => { inputRefs.current[idx * 2 + 1] = el; }}
+                      className="free-row-input"
+                      type="number"
+                      inputMode="numeric"
+                      enterKeyHint={isLastProd ? 'done' : 'next'}
+                      min="0"
+                      value={(data[p.id] || {}).ml || ''}
+                      onChange={e => setField(type, p.id, 'ml', e.target.value)}
+                      onKeyDown={e => handleKey(e, idx * 2 + 1, isLastProd)}
+                      placeholder="0"
+                    />
+                    <span className="free-row-unit">ml</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+        {dragIdx !== -1 && gapIdx === orderedProds.length && <div className="free-drop-line" />}
 
         {ghostY !== null && dragIdx >= 0 && orderedProds[dragIdx] && (
           <div className="free-drag-ghost" style={{ top: ghostY }}>
