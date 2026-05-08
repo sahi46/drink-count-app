@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function ManageScreen({ categories, products, post }) {
   const [subTab, setSubTab] = useState('products');
@@ -116,7 +117,7 @@ function ProductForm({ categories, product, post, onClose }) {
     }
   };
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet">
         <div className="modal-title">{product ? '商品を編集' : '商品を追加'}</div>
@@ -174,7 +175,8 @@ function ProductForm({ categories, product, post, onClose }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
