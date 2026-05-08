@@ -56,36 +56,26 @@ export default function App() {
     return () => clearInterval(id);
   }, [fetchAll]);
 
-  // iOS PWA keyboard resize bug 対策
+  // Safari iOS keyboard viewport bug 対策
   useEffect(() => {
     const el = screenAreaRef.current;
 
-    // window.innerHeight は iOS キーボード開閉で変化しない安定した値
-    const setAppHeight = () => {
-      document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
-    };
-    setAppHeight();
-    window.addEventListener('resize', setAppHeight);
-
-    // input blur 時に viewport をリセット + screen-area のスクロールをリセット
-    const onBlur = (e) => {
+    const onFocusOut = (e) => {
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
       window.scrollTo(0, 0);
       if (el) el.scrollTop = 0;
     };
-    window.addEventListener('focusout', onBlur, true);
 
-    // screen-area の過剰スクロールを即時クランプ
     const onScroll = () => {
       if (!el) return;
       const max = el.scrollHeight - el.clientHeight;
       if (el.scrollTop > Math.max(0, max)) el.scrollTop = Math.max(0, max);
     };
-    el?.addEventListener('scroll', onScroll, { passive: true });
 
+    window.addEventListener('focusout', onFocusOut, true);
+    el?.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      window.removeEventListener('resize', setAppHeight);
-      window.removeEventListener('focusout', onBlur, true);
+      window.removeEventListener('focusout', onFocusOut, true);
       el?.removeEventListener('scroll', onScroll);
     };
   }, []);

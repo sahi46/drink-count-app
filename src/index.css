@@ -22,12 +22,8 @@ html {
 }
 
 body {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow-x: hidden;
   overscroll-behavior: none;
   background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
@@ -41,21 +37,17 @@ body {
   -webkit-touch-callout: none;
 }
 
-#root { height: 100dvh; }
+#root { min-height: 100dvh; }
 
 /* ---- Layout ---- */
 
 .app {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--app-height, 100dvh);
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   max-width: 480px;
   margin: 0 auto;
-  overflow: hidden;
+  overflow-x: hidden;
   padding-top: env(safe-area-inset-top);
   background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
@@ -78,7 +70,8 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: none;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  /* fixed navbar の高さ分だけ下に余白（4px margin + 62px navbar + 8px padding = 74px） */
+  padding-bottom: calc(74px + env(safe-area-inset-bottom));
   background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
 
@@ -143,9 +136,14 @@ body {
 
 /* ---- NavBar ---- */
 
-/* ラッパー：背景なし、safe-area 分だけ下に余白 */
+/* ラッパー：画面下に fixed 配置 */
 .navbar-wrap {
-  flex-shrink: 0;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 480px;
+  margin: 0 auto;
   padding: 0 16px calc(8px + env(safe-area-inset-bottom));
   user-select: none;
   -webkit-user-select: none;
