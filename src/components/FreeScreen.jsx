@@ -170,12 +170,11 @@ export default function FreeScreen({ products, todayFree }) {
                     <input
                       ref={el => { inputRefs.current[idx * 2] = el; }}
                       className="free-row-input"
-                      type="number"
+                      type="text"
                       inputMode="numeric"
                       enterKeyHint="next"
-                      min="0"
                       value={(data[p.id] || {}).count || ''}
-                      onChange={e => setField(type, p.id, 'count', e.target.value)}
+                      onChange={e => setField(type, p.id, 'count', e.target.value.replace(/[^0-9]/g, ''))}
                       onKeyDown={e => handleKey(e, idx * 2, false)}
                       placeholder="0"
                     />
@@ -185,12 +184,11 @@ export default function FreeScreen({ products, todayFree }) {
                     <input
                       ref={el => { inputRefs.current[idx * 2 + 1] = el; }}
                       className="free-row-input"
-                      type="number"
+                      type="text"
                       inputMode="numeric"
                       enterKeyHint={isLastProd ? 'done' : 'next'}
-                      min="0"
                       value={(data[p.id] || {}).ml || ''}
-                      onChange={e => setField(type, p.id, 'ml', e.target.value)}
+                      onChange={e => setField(type, p.id, 'ml', e.target.value.replace(/[^0-9]/g, ''))}
                       onKeyDown={e => handleKey(e, idx * 2 + 1, isLastProd)}
                       placeholder="0"
                     />
