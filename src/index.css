@@ -75,6 +75,7 @@ body {
   overflow-x: hidden;
   overscroll-behavior: none;
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
 
 .screen-area.no-scroll {

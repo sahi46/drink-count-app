@@ -58,47 +58,57 @@ export default function App() {
 
   // iOS キーボードが閉じた後の空白対策
   useEffect(() => {
-    const fixScroll = () => {
-      window.scrollTo(0, 0);
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-      const el = screenAreaRef.current;
-      if (el) el.scrollTop = 0;
-    };
+    const el = screenAreaRef.current;
+    if (!el) return;
+
+    const reset = () => { el.scrollTop = 0; };
 
     let timers = [];
-    const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
-
-    const onFocusIn = (e) => {
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-      clearTimers();
+    let rafId = null;
+    const clearAll = () => {
+      timers.forEach(clearTimeout); timers = [];
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
     };
-
-    const onFocusOut = (e) => {
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-      clearTimers();
+    const scheduleReset = () => {
+      clearAll();
+      rafId = requestAnimationFrame(reset);          // 最速（次フレーム）
       timers = [
-        setTimeout(fixScroll, 50),
-        setTimeout(fixScroll, 300),
-        setTimeout(fixScroll, 600),
+        setTimeout(reset, 100),
+        setTimeout(reset, 400),
+        setTimeout(reset, 750),
       ];
     };
 
-    // visualViewport リサイズ（キーボード閉じ検出の補完）
+    const onFocusIn  = (e) => {
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
+      clearAll();
+    };
+    const onFocusOut = (e) => {
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
+      scheduleReset();
+    };
+
+    // Safari は focused な input が DOM から消えても focusout が発火しないことがある
+    // → scroll イベントで「コンテンツより下に来たら即リセット」を補完
+    const onScroll = () => {
+      const max = el.scrollHeight - el.clientHeight;
+      if (el.scrollTop > Math.max(0, max)) el.scrollTop = Math.max(0, max);
+    };
+
     const vv = window.visualViewport;
     const onVVResize = () => {
-      if (vv && vv.height > window.innerHeight * 0.75) {
-        fixScroll();
-      }
+      if (vv && vv.height > window.innerHeight * 0.75) reset();
     };
 
     window.addEventListener('focusin',  onFocusIn,  true);
     window.addEventListener('focusout', onFocusOut, true);
+    el.addEventListener('scroll', onScroll, { passive: true });
     vv?.addEventListener('resize', onVVResize);
     return () => {
-      clearTimers();
+      clearAll();
       window.removeEventListener('focusin',  onFocusIn,  true);
       window.removeEventListener('focusout', onFocusOut, true);
+      el.removeEventListener('scroll', onScroll);
       vv?.removeEventListener('resize', onVVResize);
     };
   }, []);
