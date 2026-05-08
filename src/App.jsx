@@ -56,78 +56,37 @@ export default function App() {
     return () => clearInterval(id);
   }, [fetchAll]);
 
-  // iOS PWA: .app を visualViewport に追従させてキーボード開閉時のずれを防ぐ
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const root = document.documentElement;
-    const update = () => {
-      root.style.setProperty('--vv-top',    vv.offsetTop + 'px');
-      root.style.setProperty('--vv-height', vv.height    + 'px');
-    };
-    update();
-    vv.addEventListener('scroll', update);
-    vv.addEventListener('resize', update);
-    return () => {
-      vv.removeEventListener('scroll', update);
-      vv.removeEventListener('resize', update);
-    };
-  }, []);
-
-  // iOS キーボードが閉じた後の空白対策
+  // iOS PWA keyboard resize bug 対策
   useEffect(() => {
     const el = screenAreaRef.current;
-    if (!el) return;
 
-    const reset = () => { el.scrollTop = 0; };
-
-    let timers = [];
-    let rafId = null;
-    const clearAll = () => {
-      timers.forEach(clearTimeout); timers = [];
-      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    // window.innerHeight は iOS キーボード開閉で変化しない安定した値
+    const setAppHeight = () => {
+      document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
     };
-    const scheduleReset = () => {
-      clearAll();
-      rafId = requestAnimationFrame(reset);          // 最速（次フレーム）
-      timers = [
-        setTimeout(reset, 100),
-        setTimeout(reset, 400),
-        setTimeout(reset, 750),
-      ];
-    };
+    setAppHeight();
+    window.addEventListener('resize', setAppHeight);
 
-    const onFocusIn  = (e) => {
+    // input blur 時に viewport をリセット + screen-area のスクロールをリセット
+    const onBlur = (e) => {
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-      clearAll();
+      window.scrollTo(0, 0);
+      if (el) el.scrollTop = 0;
     };
-    const onFocusOut = (e) => {
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-      scheduleReset();
-    };
+    window.addEventListener('focusout', onBlur, true);
 
-    // Safari は focused な input が DOM から消えても focusout が発火しないことがある
-    // → scroll イベントで「コンテンツより下に来たら即リセット」を補完
+    // screen-area の過剰スクロールを即時クランプ
     const onScroll = () => {
+      if (!el) return;
       const max = el.scrollHeight - el.clientHeight;
       if (el.scrollTop > Math.max(0, max)) el.scrollTop = Math.max(0, max);
     };
+    el?.addEventListener('scroll', onScroll, { passive: true });
 
-    const vv = window.visualViewport;
-    const onVVResize = () => {
-      if (vv && vv.height > window.innerHeight * 0.75) reset();
-    };
-
-    window.addEventListener('focusin',  onFocusIn,  true);
-    window.addEventListener('focusout', onFocusOut, true);
-    el.addEventListener('scroll', onScroll, { passive: true });
-    vv?.addEventListener('resize', onVVResize);
     return () => {
-      clearAll();
-      window.removeEventListener('focusin',  onFocusIn,  true);
-      window.removeEventListener('focusout', onFocusOut, true);
-      el.removeEventListener('scroll', onScroll);
-      vv?.removeEventListener('resize', onVVResize);
+      window.removeEventListener('resize', setAppHeight);
+      window.removeEventListener('focusout', onBlur, true);
+      el?.removeEventListener('scroll', onScroll);
     };
   }, []);
 
