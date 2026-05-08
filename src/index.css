@@ -17,12 +17,12 @@
 }
 
 html {
-  height: 100%;
+  min-height: 100dvh;
   background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
 
 body {
-  height: 100%;
+  min-height: 100dvh;
   overflow: hidden;
   background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
@@ -36,7 +36,7 @@ body {
   -webkit-touch-callout: none;
 }
 
-#root { height: 100%; }
+#root { height: 100dvh; }
 
 /* ---- Layout ---- */
 
@@ -73,7 +73,7 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
 .screen-area.no-scroll {
