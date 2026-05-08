@@ -16,6 +16,9 @@ export default function App() {
   const [todayOrders, setTodayOrders] = useState({});
   const [todayFree, setTodayFree] = useState({});
   const [iconPositions, setIconPositions] = useState(null);
+  const [iconColors, setIconColors] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('iconColors') || '{}'); } catch { return {}; }
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -62,6 +65,9 @@ export default function App() {
 
     const onFocusOut = (e) => {
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
+      // フォーカスが別の入力欄に移る場合はリセットしない
+      const next = e.relatedTarget;
+      if (next && (next.tagName === 'INPUT' || next.tagName === 'TEXTAREA')) return;
       window.scrollTo(0, 0);
       if (el) el.scrollTop = 0;
     };
@@ -100,6 +106,14 @@ export default function App() {
     await gasPost('savePositions', { positions });
   }, []);
 
+  const saveIconColor = useCallback((productId, color) => {
+    setIconColors(prev => {
+      const next = { ...prev, [productId]: color };
+      localStorage.setItem('iconColors', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const updateOrderCount = useCallback((productId, delta) => {
     const current = ordersRef.current[productId] ?? 0;
     const next = Math.max(0, current + delta);
@@ -131,7 +145,7 @@ export default function App() {
     );
   }
 
-  const screenProps = { categories, products, todayOrders, todayFree, iconPositions, post, savePositions, updateOrderCount, refresh: fetchAll };
+  const screenProps = { categories, products, todayOrders, todayFree, iconPositions, iconColors, post, savePositions, saveIconColor, updateOrderCount, refresh: fetchAll };
 
   return (
     <div className="app">

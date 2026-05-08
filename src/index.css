@@ -984,7 +984,7 @@ body {
   display: flex;
   align-items: center;
   padding: 14px 16px;
-  background: var(--glass-bg);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
@@ -994,6 +994,14 @@ body {
   will-change: transform;
   gap: 10px;
   cursor: pointer;
+}
+
+.swipe-item-arrow {
+  color: var(--text-sub);
+  font-size: 1.1rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding-left: 8px;
 }
 
 .list-item-color-dot {

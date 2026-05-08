@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 const ICON_COLORS = [
@@ -8,7 +8,7 @@ const ICON_COLORS = [
   '#A29BFE', '#FD79A8', '#FDCB6E', '#6C5CE7',
 ];
 
-export default function ManageScreen({ categories, products, post }) {
+export default function ManageScreen({ categories, products, post, iconColors, saveIconColor }) {
   const [subTab, setSubTab] = useState('order');
 
   return (
@@ -27,7 +27,7 @@ export default function ManageScreen({ categories, products, post }) {
         ))}
       </div>
 
-      {subTab === 'order'      && <OrderManager      products={products} post={post} />}
+      {subTab === 'order'      && <OrderManager      products={products} post={post} iconColors={iconColors} saveIconColor={saveIconColor} />}
       {subTab === 'free'       && <FreeManager       products={products} post={post} />}
       {subTab === 'categories' && <CategoryManager   categories={categories} post={post} />}
     </div>
@@ -38,14 +38,32 @@ export default function ManageScreen({ categories, products, post }) {
 
 function SwipeItem({ onEdit, onDelete, children, colorDot }) {
   const [offset, setOffset] = useState(0);
-  const startX = useRef(null);
-  const THRESHOLD = 60;
+  const wrapRef = useRef(null);
+  const startX  = useRef(null);
+  const THRESHOLD = 72;
+
+  // 開いている間、外タップで閉じる
+  useEffect(() => {
+    if (offset >= 0) return;
+    const close = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOffset(0);
+      }
+    };
+    document.addEventListener('touchstart', close, { passive: true });
+    document.addEventListener('mousedown', close);
+    return () => {
+      document.removeEventListener('touchstart', close);
+      document.removeEventListener('mousedown', close);
+    };
+  }, [offset]);
 
   const onTouchStart = (e) => { startX.current = e.touches[0].clientX; };
   const onTouchMove  = (e) => {
     if (startX.current === null) return;
     const dx = e.touches[0].clientX - startX.current;
     if (dx < 0) setOffset(Math.max(dx, -THRESHOLD));
+    else if (dx > 0 && offset < 0) setOffset(Math.min(0, offset + dx));
   };
   const onTouchEnd = () => {
     if (offset < -THRESHOLD / 2) setOffset(-THRESHOLD);
@@ -53,20 +71,24 @@ function SwipeItem({ onEdit, onDelete, children, colorDot }) {
     startX.current = null;
   };
 
-  const close = () => setOffset(0);
+  const handleContentClick = () => {
+    if (offset < -8) { setOffset(0); return; }
+    onEdit();
+  };
 
   return (
-    <div className="swipe-item-wrap" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+    <div ref={wrapRef} className="swipe-item-wrap" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <div className="swipe-item-delete-bg">
-        <button className="swipe-delete-btn" onTouchEnd={(e) => { e.stopPropagation(); close(); onDelete(); }}>削除</button>
+        <button
+          className="swipe-delete-btn"
+          onTouchEnd={(e) => { e.stopPropagation(); setOffset(0); onDelete(); }}
+          onClick={(e) => { e.stopPropagation(); setOffset(0); onDelete(); }}
+        >削除</button>
       </div>
-      <div
-        className="swipe-item-content"
-        style={{ transform: `translateX(${offset}px)` }}
-        onClick={() => { if (offset < -10) { close(); return; } onEdit(); }}
-      >
+      <div className="swipe-item-content" style={{ transform: `translateX(${offset}px)` }} onClick={handleContentClick}>
         {colorDot && <span className="list-item-color-dot" style={{ background: colorDot }} />}
         {children}
+        <span className="swipe-item-arrow">›</span>
       </div>
     </div>
   );
@@ -74,7 +96,7 @@ function SwipeItem({ onEdit, onDelete, children, colorDot }) {
 
 // ---- オーダードリンク管理 ----
 
-function OrderManager({ products, post }) {
+function OrderManager({ products, post, iconColors, saveIconColor }) {
   const orderProds = products.filter(p => p.type === 'order');
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -98,7 +120,7 @@ function OrderManager({ products, post }) {
       {orderProds.map(p => (
         <SwipeItem
           key={p.id}
-          colorDot={p.color || '#54A0FF'}
+          colorDot={iconColors?.[p.id] || '#54A0FF'}
           onEdit={() => { setEditing(p); setShowForm(true); }}
           onDelete={() => handleDelete(p.id)}
         >
@@ -109,24 +131,22 @@ function OrderManager({ products, post }) {
       ))}
 
       {showForm && (
-        <OrderForm product={editing} post={post} onClose={() => setShowForm(false)} />
+        <OrderForm product={editing} post={post} iconColors={iconColors} saveIconColor={saveIconColor} onClose={() => setShowForm(false)} />
       )}
     </>
   );
 }
 
-function OrderForm({ product, post, onClose }) {
+function OrderForm({ product, post, iconColors, saveIconColor, onClose }) {
   const [name,  setName]  = useState(product?.name  || '');
-  const [color, setColor] = useState(product?.color || ICON_COLORS[3]);
-  const nameRef = useRef(null);
+  const [color, setColor] = useState(() => (product ? iconColors?.[product.id] : null) || ICON_COLORS[3]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const active = document.activeElement;
     if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
       active.blur();
-      // blurの後に少し待ってから保存（iOS keyboardが閉じる前にsubmitがキャンセルされるのを防ぐ）
-      setTimeout(() => doSave(), 50);
+      setTimeout(doSave, 50);
     } else {
       doSave();
     }
@@ -134,12 +154,17 @@ function OrderForm({ product, post, onClose }) {
 
   const doSave = () => {
     if (!name.trim()) return;
+    if (product) saveIconColor(product.id, color);
     onClose();
-    const payload = { name: name.trim(), type: 'order', color, categoryId: product?.categoryId || '', unit: product?.unit || '', volume: product?.volume || '', stock: product?.stock ?? 0, reorderPoint: product?.reorderPoint ?? 0 };
+    const payload = { name: name.trim(), type: 'order', categoryId: product?.categoryId || '', unit: product?.unit || '', volume: product?.volume || '', stock: product?.stock ?? 0, reorderPoint: product?.reorderPoint ?? 0 };
     if (product) {
       post('updateProduct', { id: product.id, ...payload }).catch(console.error);
     } else {
-      post('addProduct', payload).catch(console.error);
+      post('addProduct', payload).then(res => {
+        // 新規追加時は返ってきたIDでカラーを保存
+        const newId = res?.id || res?.productId;
+        if (newId) saveIconColor(newId, color);
+      }).catch(console.error);
     }
   };
 
@@ -151,14 +176,12 @@ function OrderForm({ product, post, onClose }) {
           <div className="form-group">
             <label className="form-label">商品名 *</label>
             <input
-              ref={nameRef}
               className="form-input"
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
               enterKeyHint="done"
               required
-              autoFocus
             />
           </div>
           <div className="form-group">
@@ -255,7 +278,7 @@ function FreeForm({ product, post, onClose }) {
     const active = document.activeElement;
     if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
       active.blur();
-      setTimeout(() => doSave(), 50);
+      setTimeout(doSave, 50);
     } else {
       doSave();
     }
@@ -287,7 +310,6 @@ function FreeForm({ product, post, onClose }) {
               onKeyDown={e => onKey(e, 0)}
               enterKeyHint="next"
               required
-              autoFocus
             />
           </div>
           <div className="form-group">

@@ -9,8 +9,8 @@ const ICON_COLORS = [
   '#48DBFB', '#C8D6E5', '#FF6348', '#2ED573',
 ];
 
-function colorOf(id, product) {
-  if (product?.color) return product.color;
+function colorOf(id, iconColors) {
+  if (iconColors?.[id]) return iconColors[id];
   let h = 0;
   for (let i = 0; i < id.length; i++) h = id.charCodeAt(i) + ((h << 5) - h);
   return ICON_COLORS[Math.abs(h) % ICON_COLORS.length];
@@ -40,7 +40,7 @@ function buildPositions(saved, prods) {
   return result;
 }
 
-export default function CountScreen({ products, todayOrders, iconPositions, savePositions, updateOrderCount }) {
+export default function CountScreen({ products, todayOrders, iconPositions, iconColors, savePositions, updateOrderCount }) {
   const orderProds = products.filter(p => p.type === 'order');
   const productIds = orderProds.map(p => p.id).join(',');
 
@@ -244,7 +244,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                     <div className="icon-wrapper" style={{ opacity: dragging ? 0.22 : 1 }}>
                       <button
                         className="icon-btn"
-                        style={{ background: colorOf(p.id, p), animationDelay: `${(i % 2) * 0.11}s` }}
+                        style={{ background: colorOf(p.id, iconColors), animationDelay: `${(i % 2) * 0.11}s` }}
                         draggable={false}
                         onTouchStart={(e) => { if (jiggling) startDrag(e.touches[0].clientX, e.touches[0].clientY, i, p.id); else startPress(); }}
                         onTouchEnd={(e) => { if (!jiggling) { endPress(); handleTap(p.id); } }}
@@ -285,7 +285,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
         if (!p) return null;
         return (
           <div className="drag-ghost" style={{ left: ghost.x, top: ghost.y }}>
-            <div className="icon-btn" style={{ background: colorOf(p.id, p), width: 68, height: 68, borderRadius: 16 }}>
+            <div className="icon-btn" style={{ background: colorOf(p.id, iconColors), width: 68, height: 68, borderRadius: 16 }}>
               <span className="icon-letter">{p.name.charAt(0)}</span>
             </div>
             <div className="icon-label">{p.name}</div>
