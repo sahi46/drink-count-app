@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 export default function ManageScreen({ categories, products, post }) {
@@ -98,23 +98,27 @@ function ProductForm({ categories, product, post, onClose }) {
     stock:        product?.stock        ?? 0,
     reorderPoint: product?.reorderPoint ?? 0,
   });
-  const [saving, setSaving] = useState(false);
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
-  const handleSubmit = async (e) => {
+  // Enter キーで次フィールドへ移動
+  const refs = useRef([]);
+  const onKey = (e, idx) => {
+    if (e.key !== 'Enter') return;
     e.preventDefault();
-    setSaving(true);
-    try {
-      if (product) {
-        await post('updateProduct', { id: product.id, ...form });
-      } else {
-        await post('addProduct', form);
-      }
-      onClose();
-    } finally {
-      setSaving(false);
-    }
+    const next = refs.current[idx + 1];
+    if (next) next.focus();
+    else e.target.blur();
+  };
+
+  // 即閉じてバックグラウンドで保存
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    document.activeElement?.blur();
+    onClose();
+    const action  = product ? 'updateProduct' : 'addProduct';
+    const payload = product ? { id: product.id, ...form } : form;
+    post(action, payload).catch(console.error);
   };
 
   return createPortal(
@@ -124,7 +128,15 @@ function ProductForm({ categories, product, post, onClose }) {
         <form className="form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">商品名 *</label>
-            <input className="form-input" value={form.name} onChange={e => set('name', e.target.value)} required />
+            <input
+              ref={el => { refs.current[0] = el; }}
+              className="form-input"
+              value={form.name}
+              onChange={e => set('name', e.target.value)}
+              onKeyDown={e => onKey(e, 0)}
+              enterKeyHint="next"
+              required
+            />
           </div>
 
           <div className="form-group">
@@ -146,32 +158,62 @@ function ProductForm({ categories, product, post, onClose }) {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">容量</label>
-              <input className="form-input" value={form.volume} onChange={e => set('volume', e.target.value)} placeholder="350" />
+              <input
+                ref={el => { refs.current[1] = el; }}
+                className="form-input"
+                value={form.volume}
+                onChange={e => set('volume', e.target.value)}
+                onKeyDown={e => onKey(e, 1)}
+                enterKeyHint="next"
+                placeholder="350"
+              />
             </div>
             <div className="form-group">
               <label className="form-label">単位</label>
-              <input className="form-input" value={form.unit} onChange={e => set('unit', e.target.value)} placeholder="ml" />
+              <input
+                ref={el => { refs.current[2] = el; }}
+                className="form-input"
+                value={form.unit}
+                onChange={e => set('unit', e.target.value)}
+                onKeyDown={e => onKey(e, 2)}
+                enterKeyHint="next"
+                placeholder="ml"
+              />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">在庫数</label>
-              <input className="form-input" type="number" min="0" inputMode="numeric"
-                value={form.stock} onChange={e => set('stock', e.target.value)} />
+              <input
+                ref={el => { refs.current[3] = el; }}
+                className="form-input"
+                type="text"
+                inputMode="numeric"
+                value={form.stock}
+                onChange={e => set('stock', e.target.value.replace(/[^0-9]/g, ''))}
+                onKeyDown={e => onKey(e, 3)}
+                enterKeyHint="next"
+              />
             </div>
             <div className="form-group">
               <label className="form-label">発注点</label>
-              <input className="form-input" type="number" min="0" inputMode="numeric"
-                value={form.reorderPoint} onChange={e => set('reorderPoint', e.target.value)} />
+              <input
+                ref={el => { refs.current[4] = el; }}
+                className="form-input"
+                type="text"
+                inputMode="numeric"
+                value={form.reorderPoint}
+                onChange={e => set('reorderPoint', e.target.value.replace(/[^0-9]/g, ''))}
+                onKeyDown={e => onKey(e, 4)}
+                enterKeyHint="done"
+              />
             </div>
           </div>
 
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>キャンセル</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? '保存中...' : '保存'}
-            </button>
+            <button type="submit" className="btn btn-primary">保存</button>
           </div>
         </form>
       </div>

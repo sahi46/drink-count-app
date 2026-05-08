@@ -56,11 +56,18 @@ export default function App() {
     return () => clearInterval(id);
   }, [fetchAll]);
 
-  // iOS キーボードが閉じた後のスクロールズレ対策
+  // iOS キーボードが閉じた後の空白対策
   useEffect(() => {
     const onBlur = (e) => {
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-      requestAnimationFrame(() => window.scrollTo(0, 0));
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+        const el = screenAreaRef.current;
+        if (el) {
+          const max = el.scrollHeight - el.clientHeight;
+          if (el.scrollTop > max) el.scrollTop = Math.max(0, max);
+        }
+      }, 300);
     };
     window.addEventListener('focusout', onBlur, true);
     return () => window.removeEventListener('focusout', onBlur, true);
