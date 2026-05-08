@@ -8,72 +8,107 @@ const ICON_COLORS = [
   '#A29BFE', '#FD79A8', '#FDCB6E', '#6C5CE7',
 ];
 
-export default function ManageScreen({ categories, products, post, iconColors, saveIconColor }) {
-  const [subTab, setSubTab] = useState('order');
+// ---- 並び順をlocalStorageに保存するhook ----
+function useSortList(key, items) {
+  const ids = items.map(i => i.id).join(',');
 
+  const [order, _setOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || '[]');
+      const validIds = new Set(items.map(i => i.id));
+      const kept  = saved.filter(id => validIds.has(id));
+      const added = items.filter(i => !kept.includes(i.id)).map(i => i.id);
+      return [...kept, ...added];
+    } catch { return items.map(i => i.id); }
+  });
+
+  useEffect(() => {
+    _setOrder(prev => {
+      const validIds = new Set(items.map(i => i.id));
+      const kept  = prev.filter(id => validIds.has(id));
+      const added = items.filter(i => !kept.includes(i.id)).map(i => i.id);
+      const next  = [...kept, ...added];
+      return next.join(',') === prev.join(',') ? prev : next;
+    });
+  }, [ids]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setOrder = useCallback((update) => {
+    _setOrder(prev => {
+      const next = typeof update === 'function' ? update(prev) : update;
+      localStorage.setItem(key, JSON.stringify(next));
+      return next;
+    });
+  }, [key]);
+
+  return [order, setOrder];
+}
+
+// ---- ManageScreen ----
+export default function ManageScreen({ categories, products, post, iconColors, saveIconColor, hiddenProducts, toggleVisibility }) {
+  const [subTab, setSubTab] = useState('order');
   return (
     <div className="screen">
       <div className="screen-header">
         <h1>管理</h1>
       </div>
-
       <div className="sub-tabs">
         {[['order', 'オーダー'], ['free', 'フリー'], ['categories', 'カテゴリ']].map(([id, label]) => (
-          <button
-            key={id}
-            className={`sub-tab${subTab === id ? ' active' : ''}`}
-            onClick={() => setSubTab(id)}
-          >{label}</button>
+          <button key={id} className={`sub-tab${subTab === id ? ' active' : ''}`} onClick={() => setSubTab(id)}>
+            {label}
+          </button>
         ))}
       </div>
-
-      {subTab === 'order'      && <OrderManager      products={products} post={post} iconColors={iconColors} saveIconColor={saveIconColor} />}
-      {subTab === 'free'       && <FreeManager       products={products} post={post} />}
-      {subTab === 'categories' && <CategoryManager   categories={categories} post={post} />}
+      {subTab === 'order'      && <OrderManager products={products} post={post} iconColors={iconColors} saveIconColor={saveIconColor} hiddenProducts={hiddenProducts} toggleVisibility={toggleVisibility} />}
+      {subTab === 'free'       && <FreeManager  products={products} post={post} hiddenProducts={hiddenProducts} toggleVisibility={toggleVisibility} />}
+      {subTab === 'categories' && <CategoryManager categories={categories} post={post} />}
     </div>
   );
 }
 
-// ---- スワイプ削除対応リストアイテム ----
-
-function SwipeItem({ onEdit, onDelete, children, colorDot }) {
+// ---- スワイプ削除リストアイテム ----
+function SwipeItem({ onEdit, onDelete, children, colorDot, extra }) {
   const [offset, setOffset] = useState(0);
-  const wrapRef = useRef(null);
-  const startX  = useRef(null);
-  const THRESHOLD = 72;
+  const wrapRef     = useRef(null);
+  const startX      = useRef(null);
+  const startY      = useRef(null);
+  const startOffset = useRef(0);
+  const isHoriz     = useRef(null); // null=未確定
+  const THRESHOLD   = 72;
 
-  // 開いている間、外タップで閉じる
+  // 開いているとき外タップで閉じる
   useEffect(() => {
     if (offset >= 0) return;
     const close = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setOffset(0);
-      }
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOffset(0);
     };
     document.addEventListener('touchstart', close, { passive: true });
-    document.addEventListener('mousedown', close);
+    document.addEventListener('mousedown',  close);
     return () => {
       document.removeEventListener('touchstart', close);
-      document.removeEventListener('mousedown', close);
+      document.removeEventListener('mousedown',  close);
     };
   }, [offset]);
 
-  const onTouchStart = (e) => { startX.current = e.touches[0].clientX; };
-  const onTouchMove  = (e) => {
+  const onTouchStart = (e) => {
+    startX.current      = e.touches[0].clientX;
+    startY.current      = e.touches[0].clientY;
+    startOffset.current = offset;
+    isHoriz.current     = null;
+  };
+  const onTouchMove = (e) => {
     if (startX.current === null) return;
     const dx = e.touches[0].clientX - startX.current;
-    if (dx < 0) setOffset(Math.max(dx, -THRESHOLD));
-    else if (dx > 0 && offset < 0) setOffset(Math.min(0, offset + dx));
+    const dy = e.touches[0].clientY - startY.current;
+    if (isHoriz.current === null) {
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      isHoriz.current = Math.abs(dx) > Math.abs(dy) * 1.5;
+    }
+    if (!isHoriz.current) return;
+    setOffset(Math.max(-THRESHOLD, Math.min(0, startOffset.current + dx)));
   };
   const onTouchEnd = () => {
-    if (offset < -THRESHOLD / 2) setOffset(-THRESHOLD);
-    else setOffset(0);
-    startX.current = null;
-  };
-
-  const handleContentClick = () => {
-    if (offset < -8) { setOffset(0); return; }
-    onEdit();
+    if (isHoriz.current) setOffset(offset < -THRESHOLD / 2 ? -THRESHOLD : 0);
+    startX.current = null; startY.current = null; isHoriz.current = null;
   };
 
   return (
@@ -82,24 +117,122 @@ function SwipeItem({ onEdit, onDelete, children, colorDot }) {
         <button
           className="swipe-delete-btn"
           onTouchEnd={(e) => { e.stopPropagation(); setOffset(0); onDelete(); }}
-          onClick={(e) => { e.stopPropagation(); setOffset(0); onDelete(); }}
+          onClick={(e)    => { e.stopPropagation(); setOffset(0); onDelete(); }}
         >削除</button>
       </div>
-      <div className="swipe-item-content" style={{ transform: `translateX(${offset}px)` }} onClick={handleContentClick}>
+      <div
+        className="swipe-item-content"
+        style={{ transform: `translateX(${offset}px)` }}
+        onClick={() => { if (offset < -8) { setOffset(0); return; } onEdit(); }}
+      >
         {colorDot && <span className="list-item-color-dot" style={{ background: colorDot }} />}
-        {children}
+        <div className="swipe-item-body">{children}</div>
+        {extra}
         <span className="swipe-item-arrow">›</span>
       </div>
     </div>
   );
 }
 
-// ---- オーダードリンク管理 ----
+// ---- 表示トグル ----
+function VisibilityToggle({ id, hiddenProducts, toggleVisibility }) {
+  const hidden = !!hiddenProducts?.[id];
+  return (
+    <button
+      type="button"
+      className={`vis-toggle${hidden ? ' hidden' : ''}`}
+      onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); toggleVisibility(id); }}
+      onClick={(e)    => { e.stopPropagation(); toggleVisibility(id); }}
+    >{hidden ? '非表示' : '表示中'}</button>
+  );
+}
 
-function OrderManager({ products, post, iconColors, saveIconColor }) {
+// ---- ドラッグ並び替えhook（管理リスト用）----
+function useDragSort(items, setOrder) {
+  const [dragIdx, setDragIdx] = useState(-1);
+  const [gapIdx,  setGapIdx]  = useState(-1);
+  const [ghostY,  setGhostY]  = useState(null);
+  const gapRef     = useRef(-1);
+  const dragFrom   = useRef(-1);
+  const listRef    = useRef(null);
+
+  const nearestGap = useCallback((cy) => {
+    if (!listRef.current) return 0;
+    const rows = [...listRef.current.querySelectorAll('.sort-row')];
+    if (rows.length === 0) return 0;
+    const gaps = [rows[0].getBoundingClientRect().top];
+    for (let i = 0; i < rows.length - 1; i++) {
+      const a = rows[i].getBoundingClientRect().bottom;
+      const b = rows[i + 1].getBoundingClientRect().top;
+      gaps.push((a + b) / 2);
+    }
+    gaps.push(rows[rows.length - 1].getBoundingClientRect().bottom);
+    let best = 0, minD = Infinity;
+    gaps.forEach((y, i) => { const d = Math.abs(cy - y); if (d < minD) { minD = d; best = i; } });
+    return best;
+  }, []);
+
+  const moveDrag = useCallback((cy) => {
+    setGhostY(cy);
+    const gap = nearestGap(cy);
+    gapRef.current = gap;
+    setGapIdx(gap);
+  }, [nearestGap]);
+
+  const commitDrag = useCallback(() => {
+    const from = dragFrom.current;
+    const gap  = gapRef.current;
+    if (gap !== -1 && gap !== from && gap !== from + 1) {
+      setOrder(prev => {
+        const next = [...prev];
+        const [item] = next.splice(from, 1);
+        const insertAt = gap > from ? gap - 1 : gap;
+        next.splice(insertAt, 0, item);
+        return next;
+      });
+    }
+    setDragIdx(-1); setGhostY(null); setGapIdx(-1);
+    gapRef.current = -1; dragFrom.current = -1;
+  }, [setOrder]);
+
+  useEffect(() => {
+    if (dragIdx === -1) return;
+    const mv = (e) => { e.preventDefault(); moveDrag(e.touches ? e.touches[0].clientY : e.clientY); };
+    const up = () => commitDrag();
+    document.addEventListener('touchmove', mv, { passive: false });
+    document.addEventListener('touchend',  up);
+    document.addEventListener('mousemove', mv);
+    document.addEventListener('mouseup',   up);
+    return () => {
+      document.removeEventListener('touchmove', mv);
+      document.removeEventListener('touchend',  up);
+      document.removeEventListener('mousemove', mv);
+      document.removeEventListener('mouseup',   up);
+    };
+  }, [dragIdx, moveDrag, commitDrag]);
+
+  const startDrag = useCallback((e, idx) => {
+    e.preventDefault();
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    dragFrom.current = idx;
+    gapRef.current   = idx;
+    setDragIdx(idx); setGhostY(cy); setGapIdx(idx);
+  }, []);
+
+  return { dragIdx, gapIdx, ghostY, listRef, startDrag };
+}
+
+// ---- オーダードリンク管理 ----
+function OrderManager({ products, post, iconColors, saveIconColor, hiddenProducts, toggleVisibility }) {
   const orderProds = products.filter(p => p.type === 'order');
-  const [editing, setEditing] = useState(null);
+  const [order, setOrder] = useSortList('manageOrderList', orderProds);
+  const [sortMode, setSortMode] = useState(false);
+  const [editing, setEditing]   = useState(null);
   const [showForm, setShowForm] = useState(false);
+
+  const { dragIdx, gapIdx, ghostY, listRef, startDrag } = useDragSort(order, setOrder);
+
+  const orderedItems = order.map(id => orderProds.find(p => p.id === id)).filter(Boolean);
 
   const handleDelete = useCallback(async (id) => {
     if (!window.confirm('削除しますか？')) return;
@@ -110,25 +243,58 @@ function OrderManager({ products, post, iconColors, saveIconColor }) {
     <>
       <div className="section-header">
         <h2>オーダードリンク一覧</h2>
-        <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>
-          ＋ 追加
-        </button>
+        <div className="section-header-actions">
+          {sortMode
+            ? <button className="btn btn-primary btn-sm" onClick={() => setSortMode(false)}>完了</button>
+            : <>
+                <button className="btn btn-secondary btn-sm" onClick={() => setSortMode(true)}>並替</button>
+                <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>＋ 追加</button>
+              </>
+          }
+        </div>
       </div>
 
-      {orderProds.length === 0 && <div className="empty-state">オーダードリンクがありません。</div>}
+      {orderedItems.length === 0 && <div className="empty-state">オーダードリンクがありません。</div>}
 
-      {orderProds.map(p => (
-        <SwipeItem
-          key={p.id}
-          colorDot={iconColors?.[p.id] || '#54A0FF'}
-          onEdit={() => { setEditing(p); setShowForm(true); }}
-          onDelete={() => handleDelete(p.id)}
-        >
-          <div className="list-item-info">
-            <div className="list-item-name">{p.name}</div>
-          </div>
-        </SwipeItem>
-      ))}
+      <div ref={listRef}>
+        {orderedItems.map((p, idx) => {
+          const color = iconColors?.[p.id] || '#54A0FF';
+          const vis   = <VisibilityToggle id={p.id} hiddenProducts={hiddenProducts} toggleVisibility={toggleVisibility} />;
+          if (sortMode) {
+            return (
+              <div key={p.id}>
+                {dragIdx !== -1 && gapIdx === idx && <div className="sort-drop-line" />}
+                <div className={`sort-row${dragIdx === idx ? ' sort-row-dragging' : ''}`}>
+                  <div className="sort-row-grip" onTouchStart={(e) => startDrag(e, idx)} onMouseDown={(e) => startDrag(e, idx)}>⠿</div>
+                  <span className="list-item-color-dot" style={{ background: color }} />
+                  <div className="sort-row-name">{p.name}</div>
+                  {vis}
+                </div>
+              </div>
+            );
+          }
+          return (
+            <SwipeItem
+              key={p.id}
+              colorDot={color}
+              onEdit={() => { setEditing(p); setShowForm(true); }}
+              onDelete={() => handleDelete(p.id)}
+              extra={vis}
+            >
+              <div className="list-item-name">{p.name}</div>
+            </SwipeItem>
+          );
+        })}
+        {sortMode && dragIdx !== -1 && gapIdx === orderedItems.length && <div className="sort-drop-line" />}
+      </div>
+
+      {sortMode && ghostY !== null && dragIdx >= 0 && orderedItems[dragIdx] && createPortal(
+        <div className="sort-drag-ghost" style={{ top: ghostY }}>
+          <span className="sort-row-grip">⠿</span>
+          <span>{orderedItems[dragIdx].name}</span>
+        </div>,
+        document.body
+      )}
 
       {showForm && (
         <OrderForm product={editing} post={post} iconColors={iconColors} saveIconColor={saveIconColor} onClose={() => setShowForm(false)} />
@@ -141,18 +307,7 @@ function OrderForm({ product, post, iconColors, saveIconColor, onClose }) {
   const [name,  setName]  = useState(product?.name  || '');
   const [color, setColor] = useState(() => (product ? iconColors?.[product.id] : null) || ICON_COLORS[3]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const active = document.activeElement;
-    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-      active.blur();
-      setTimeout(doSave, 50);
-    } else {
-      doSave();
-    }
-  };
-
-  const doSave = () => {
+  const doSave = useCallback(() => {
     if (!name.trim()) return;
     if (product) saveIconColor(product.id, color);
     onClose();
@@ -161,18 +316,17 @@ function OrderForm({ product, post, iconColors, saveIconColor, onClose }) {
       post('updateProduct', { id: product.id, ...payload }).catch(console.error);
     } else {
       post('addProduct', payload).then(res => {
-        // 新規追加時は返ってきたIDでカラーを保存
         const newId = res?.id || res?.productId;
         if (newId) saveIconColor(newId, color);
       }).catch(console.error);
     }
-  };
+  }, [name, color, product, post, saveIconColor, onClose]);
 
   return createPortal(
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet">
         <div className="modal-title">{product ? 'オーダードリンクを編集' : 'オーダードリンクを追加'}</div>
-        <form className="form" onSubmit={handleSubmit}>
+        <div className="form">
           <div className="form-group">
             <label className="form-label">商品名 *</label>
             <input
@@ -181,7 +335,6 @@ function OrderForm({ product, post, iconColors, saveIconColor, onClose }) {
               onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
               enterKeyHint="done"
-              required
             />
           </div>
           <div className="form-group">
@@ -193,6 +346,7 @@ function OrderForm({ product, post, iconColors, saveIconColor, onClose }) {
                   type="button"
                   className={`color-swatch${color === c ? ' selected' : ''}`}
                   style={{ background: c }}
+                  onTouchEnd={(e) => { e.preventDefault(); setColor(c); }}
                   onClick={() => setColor(c)}
                 />
               ))}
@@ -200,9 +354,14 @@ function OrderForm({ product, post, iconColors, saveIconColor, onClose }) {
           </div>
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>キャンセル</button>
-            <button type="submit" className="btn btn-primary">保存</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onTouchEnd={(e) => { e.preventDefault(); doSave(); }}
+              onClick={doSave}
+            >保存</button>
           </div>
-        </form>
+        </div>
       </div>
     </div>,
     document.body
@@ -210,11 +369,16 @@ function OrderForm({ product, post, iconColors, saveIconColor, onClose }) {
 }
 
 // ---- フリードリンク管理 ----
-
-function FreeManager({ products, post }) {
+function FreeManager({ products, post, hiddenProducts, toggleVisibility }) {
   const freeProds = products.filter(p => p.type === 'free');
-  const [editing, setEditing] = useState(null);
+  const [order, setOrder] = useSortList('manageFreeList', freeProds);
+  const [sortMode, setSortMode] = useState(false);
+  const [editing, setEditing]   = useState(null);
   const [showForm, setShowForm] = useState(false);
+
+  const { dragIdx, gapIdx, ghostY, listRef, startDrag } = useDragSort(order, setOrder);
+
+  const orderedItems = order.map(id => freeProds.find(p => p.id === id)).filter(Boolean);
 
   const handleDelete = useCallback(async (id) => {
     if (!window.confirm('削除しますか？')) return;
@@ -225,29 +389,65 @@ function FreeManager({ products, post }) {
     <>
       <div className="section-header">
         <h2>フリードリンク一覧</h2>
-        <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>
-          ＋ 追加
-        </button>
+        <div className="section-header-actions">
+          {sortMode
+            ? <button className="btn btn-primary btn-sm" onClick={() => setSortMode(false)}>完了</button>
+            : <>
+                <button className="btn btn-secondary btn-sm" onClick={() => setSortMode(true)}>並替</button>
+                <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>＋ 追加</button>
+              </>
+          }
+        </div>
       </div>
 
-      {freeProds.length === 0 && <div className="empty-state">フリードリンクがありません。</div>}
+      {orderedItems.length === 0 && <div className="empty-state">フリードリンクがありません。</div>}
 
-      {freeProds.map(p => (
-        <SwipeItem
-          key={p.id}
-          onEdit={() => { setEditing(p); setShowForm(true); }}
-          onDelete={() => handleDelete(p.id)}
-        >
-          <div className="list-item-info">
-            <div className="list-item-name">{p.name}</div>
-            <div className="list-item-sub">
-              {p.unit ? `容器込み ${p.unit}g` : ''}
-              {p.unit && p.volume ? ' ／ ' : ''}
-              {p.volume ? `${p.volume}ml` : ''}
-            </div>
-          </div>
-        </SwipeItem>
-      ))}
+      <div ref={listRef}>
+        {orderedItems.map((p, idx) => {
+          const vis = <VisibilityToggle id={p.id} hiddenProducts={hiddenProducts} toggleVisibility={toggleVisibility} />;
+          if (sortMode) {
+            return (
+              <div key={p.id}>
+                {dragIdx !== -1 && gapIdx === idx && <div className="sort-drop-line" />}
+                <div className={`sort-row${dragIdx === idx ? ' sort-row-dragging' : ''}`}>
+                  <div className="sort-row-grip" onTouchStart={(e) => startDrag(e, idx)} onMouseDown={(e) => startDrag(e, idx)}>⠿</div>
+                  <div className="sort-row-name">
+                    {p.name}
+                    {(p.unit || p.volume) && <span className="sort-row-sub">{[p.unit && `${p.unit}g`, p.volume && `${p.volume}ml`].filter(Boolean).join(' / ')}</span>}
+                  </div>
+                  {vis}
+                </div>
+              </div>
+            );
+          }
+          return (
+            <SwipeItem
+              key={p.id}
+              onEdit={() => { setEditing(p); setShowForm(true); }}
+              onDelete={() => handleDelete(p.id)}
+              extra={vis}
+            >
+              <div className="list-item-info">
+                <div className="list-item-name">{p.name}</div>
+                {(p.unit || p.volume) && (
+                  <div className="list-item-sub">
+                    {p.unit ? `容器込み ${p.unit}g` : ''}{p.unit && p.volume ? ' ／ ' : ''}{p.volume ? `${p.volume}ml` : ''}
+                  </div>
+                )}
+              </div>
+            </SwipeItem>
+          );
+        })}
+        {sortMode && dragIdx !== -1 && gapIdx === orderedItems.length && <div className="sort-drop-line" />}
+      </div>
+
+      {sortMode && ghostY !== null && dragIdx >= 0 && orderedItems[dragIdx] && createPortal(
+        <div className="sort-drag-ghost" style={{ top: ghostY }}>
+          <span className="sort-row-grip">⠿</span>
+          <span>{orderedItems[dragIdx].name}</span>
+        </div>,
+        document.body
+      )}
 
       {showForm && (
         <FreeForm product={editing} post={post} onClose={() => setShowForm(false)} />
@@ -263,7 +463,6 @@ function FreeForm({ product, post, onClose }) {
     volume: product?.volume || '',
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
   const refs = useRef([]);
   const onKey = (e, idx) => {
     if (e.key !== 'Enter') return;
@@ -273,18 +472,7 @@ function FreeForm({ product, post, onClose }) {
     else e.target.blur();
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const active = document.activeElement;
-    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-      active.blur();
-      setTimeout(doSave, 50);
-    } else {
-      doSave();
-    }
-  };
-
-  const doSave = () => {
+  const doSave = useCallback(() => {
     if (!form.name.trim()) return;
     onClose();
     const payload = { name: form.name.trim(), type: 'free', categoryId: product?.categoryId || '', unit: form.unit, volume: form.volume, stock: product?.stock ?? 0, reorderPoint: product?.reorderPoint ?? 0 };
@@ -293,13 +481,13 @@ function FreeForm({ product, post, onClose }) {
     } else {
       post('addProduct', payload).catch(console.error);
     }
-  };
+  }, [form, product, post, onClose]);
 
   return createPortal(
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet">
         <div className="modal-title">{product ? 'フリードリンクを編集' : 'フリードリンクを追加'}</div>
-        <form className="form" onSubmit={handleSubmit}>
+        <div className="form">
           <div className="form-group">
             <label className="form-label">商品名 *</label>
             <input
@@ -342,9 +530,14 @@ function FreeForm({ product, post, onClose }) {
           </div>
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>キャンセル</button>
-            <button type="submit" className="btn btn-primary">保存</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onTouchEnd={(e) => { e.preventDefault(); doSave(); }}
+              onClick={doSave}
+            >保存</button>
           </div>
-        </form>
+        </div>
       </div>
     </div>,
     document.body
@@ -352,7 +545,6 @@ function FreeForm({ product, post, onClose }) {
 }
 
 // ---- カテゴリ管理 ----
-
 function CategoryManager({ categories, post }) {
   const [name, setName]     = useState('');
   const [saving, setSaving] = useState(false);
@@ -394,18 +586,11 @@ function CategoryManager({ categories, post }) {
           </button>
         </form>
       </div>
-
-      <div className="section-header">
-        <h2>カテゴリ一覧</h2>
-      </div>
-
+      <div className="section-header"><h2>カテゴリ一覧</h2></div>
       {categories.length === 0 && <div className="empty-state">カテゴリがありません。</div>}
-
       {categories.map(cat => (
         <div key={cat.id} className="list-item">
-          <div className="list-item-info">
-            <div className="list-item-name">{cat.name}</div>
-          </div>
+          <div className="list-item-info"><div className="list-item-name">{cat.name}</div></div>
           <div className="list-item-actions">
             <button className="btn btn-danger btn-sm" onClick={() => handleDelete(cat.id)}>削除</button>
           </div>

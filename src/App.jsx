@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import NavBar from './components/NavBar';
 import CountScreen from './components/CountScreen';
 import FreeScreen from './components/FreeScreen';
-import StockScreen from './components/StockScreen';
-import ReceivingScreen from './components/ReceivingScreen';
 import ManageScreen from './components/ManageScreen';
 import { gasGet, gasPost } from './api';
 
@@ -18,6 +16,9 @@ export default function App() {
   const [iconPositions, setIconPositions] = useState(null);
   const [iconColors, setIconColors] = useState(() => {
     try { return JSON.parse(localStorage.getItem('iconColors') || '{}'); } catch { return {}; }
+  });
+  const [hiddenProducts, setHiddenProducts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hiddenProducts') || '{}'); } catch { return {}; }
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,7 +36,6 @@ export default function App() {
       setProducts(d.products || []);
 
       const serverOrders = d.todayOrders || {};
-      // 保存待ち中の商品はサーバー値で上書きしない
       const merged = { ...serverOrders };
       pendingIds.current.forEach(id => {
         merged[id] = ordersRef.current[id] ?? 0;
@@ -65,7 +65,6 @@ export default function App() {
 
     const onFocusOut = (e) => {
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-      // フォーカスが別の入力欄に移る場合はリセットしない
       const next = e.relatedTarget;
       if (next && (next.tagName === 'INPUT' || next.tagName === 'TEXTAREA')) return;
       window.scrollTo(0, 0);
@@ -114,6 +113,16 @@ export default function App() {
     });
   }, []);
 
+  const toggleVisibility = useCallback((productId) => {
+    setHiddenProducts(prev => {
+      const next = { ...prev };
+      if (next[productId]) delete next[productId];
+      else next[productId] = true;
+      localStorage.setItem('hiddenProducts', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const updateOrderCount = useCallback((productId, delta) => {
     const current = ordersRef.current[productId] ?? 0;
     const next = Math.max(0, current + delta);
@@ -129,7 +138,6 @@ export default function App() {
       try {
         await gasPost('updateOrderCount', { productId, count });
       } finally {
-        // タイマー待機中に新たなタップがあった場合はpendingを維持
         if (saveVersions.current[productId] === version) {
           pendingIds.current.delete(productId);
         }
@@ -145,17 +153,20 @@ export default function App() {
     );
   }
 
-  const screenProps = { categories, products, todayOrders, todayFree, iconPositions, iconColors, post, savePositions, saveIconColor, updateOrderCount, refresh: fetchAll };
+  const screenProps = {
+    categories, products, todayOrders, todayFree,
+    iconPositions, iconColors, hiddenProducts,
+    post, savePositions, saveIconColor, toggleVisibility, updateOrderCount,
+    refresh: fetchAll,
+  };
 
   return (
     <div className="app">
       {error && <div className="error-banner">{error}</div>}
       <div className={`screen-area ${tab === 'count' ? 'no-scroll' : ''}`} ref={screenAreaRef}>
-        {tab === 'count'     && <CountScreen {...screenProps} />}
-        {tab === 'free'      && <FreeScreen {...screenProps} />}
-        {tab === 'stock'     && <StockScreen {...screenProps} />}
-        {tab === 'receiving' && <ReceivingScreen {...screenProps} />}
-        {tab === 'manage'    && <ManageScreen {...screenProps} />}
+        {tab === 'count'  && <CountScreen {...screenProps} />}
+        {tab === 'free'   && <FreeScreen  {...screenProps} />}
+        {tab === 'manage' && <ManageScreen {...screenProps} />}
       </div>
       <NavBar current={tab} onChange={setTab} />
     </div>

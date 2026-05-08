@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { gasPost } from '../api';
 
-export default function FreeScreen({ products, todayFree }) {
-  const freeProds = products.filter(p => p.type === 'free');
+export default function FreeScreen({ products, todayFree, hiddenProducts }) {
+  const freeProds = products.filter(p => p.type === 'free' && !hiddenProducts?.[p.id]);
   const prodIds   = freeProds.map(p => p.id).join(',');
 
   const [subTab, setSubTab] = useState('before');

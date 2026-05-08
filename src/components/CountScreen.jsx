@@ -40,8 +40,8 @@ function buildPositions(saved, prods) {
   return result;
 }
 
-export default function CountScreen({ products, todayOrders, iconPositions, iconColors, savePositions, updateOrderCount }) {
-  const orderProds = products.filter(p => p.type === 'order');
+export default function CountScreen({ products, todayOrders, iconPositions, iconColors, hiddenProducts, savePositions, updateOrderCount }) {
+  const orderProds = products.filter(p => p.type === 'order' && !hiddenProducts?.[p.id]);
   const productIds = orderProds.map(p => p.id).join(',');
 
   const [positions, setPositions] = useState(() => buildPositions(iconPositions, orderProds));

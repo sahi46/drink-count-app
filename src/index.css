@@ -959,15 +959,18 @@ body {
   overflow: hidden;
 }
 
+/* 削除ボタンは右端のみ（幅72px） */
 .swipe-item-delete-bg {
   position: absolute;
-  inset: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 72px;
   background: var(--danger);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding-right: 16px;
-  border-radius: var(--radius);
+  justify-content: center;
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 .swipe-delete-btn {
@@ -980,28 +983,125 @@ body {
   padding: 8px 4px;
 }
 
+/* コンテンツはz-index:1でdel bgの上に乗る → 透けない */
 .swipe-item-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   box-shadow: var(--glass-shadow);
   transition: transform 0.18s ease;
-  will-change: transform;
   gap: 10px;
   cursor: pointer;
 }
 
+.swipe-item-body { flex: 1; min-width: 0; }
+
 .swipe-item-arrow {
   color: var(--text-sub);
-  font-size: 1.1rem;
-  margin-left: auto;
+  font-size: 1rem;
   flex-shrink: 0;
-  padding-left: 8px;
+  margin-left: 4px;
+}
+
+/* ---- Sort mode ---- */
+
+.section-header-actions { display: flex; gap: 6px; }
+
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  margin-bottom: 10px;
+  transition: opacity 0.15s;
+}
+
+.sort-row-dragging { opacity: 0.35; }
+
+.sort-row-grip {
+  font-size: 1.2rem;
+  color: var(--text-sub);
+  flex-shrink: 0;
+  cursor: grab;
+  padding: 4px 2px;
+  touch-action: none;
+}
+
+.sort-row-name {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sort-row-sub {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-sub);
+}
+
+.sort-drop-line {
+  height: 3px;
+  background: var(--primary);
+  border-radius: 2px;
+  margin: 2px 8px;
+}
+
+.sort-drag-ghost {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.97);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* ---- Visibility toggle ---- */
+
+.vis-toggle {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  background: rgba(52, 199, 89, 0.15);
+  color: #1a7f37;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.vis-toggle.hidden {
+  background: rgba(142, 142, 147, 0.15);
+  color: var(--text-sub);
 }
 
 .list-item-color-dot {
