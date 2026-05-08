@@ -47,10 +47,10 @@ body {
 
 .app {
   position: fixed;
-  top: 0;
+  top: var(--vv-top, 0px);
   left: 0;
   right: 0;
-  bottom: 0;
+  height: var(--vv-height, 100dvh);
   display: flex;
   flex-direction: column;
   max-width: 480px;

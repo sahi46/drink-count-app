@@ -56,6 +56,24 @@ export default function App() {
     return () => clearInterval(id);
   }, [fetchAll]);
 
+  // iOS PWA: .app を visualViewport に追従させてキーボード開閉時のずれを防ぐ
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const root = document.documentElement;
+    const update = () => {
+      root.style.setProperty('--vv-top',    vv.offsetTop + 'px');
+      root.style.setProperty('--vv-height', vv.height    + 'px');
+    };
+    update();
+    vv.addEventListener('scroll', update);
+    vv.addEventListener('resize', update);
+    return () => {
+      vv.removeEventListener('scroll', update);
+      vv.removeEventListener('resize', update);
+    };
+  }, []);
+
   // iOS キーボードが閉じた後の空白対策
   useEffect(() => {
     const el = screenAreaRef.current;
