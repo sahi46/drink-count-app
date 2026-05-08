@@ -53,21 +53,26 @@ export default function FreeScreen({ products, todayFree }) {
     });
   }, [scheduleSave]);
 
-  // Enter キー: 個数→次の商品の個数、ml→次の商品のml
+  // Enter キー: 列移動（全商品の個数 → 全商品のml）
   const countRefs = useRef([]);
   const mlRefs    = useRef([]);
+  const focusAndScroll = (el) => {
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+  };
   const handleCountKey = (e, idx) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     const next = countRefs.current[idx + 1];
-    if (next) next.focus({ preventScroll: true });
-    else e.target.blur();
+    if (next) focusAndScroll(next);
+    else focusAndScroll(mlRefs.current[0]);
   };
   const handleMlKey = (e, idx) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     const next = mlRefs.current[idx + 1];
-    if (next) next.focus({ preventScroll: true });
+    if (next) focusAndScroll(next);
     else e.target.blur();
   };
 
@@ -178,10 +183,11 @@ export default function FreeScreen({ products, todayFree }) {
                       className="free-row-input"
                       type="text"
                       inputMode="tel"
-                      enterKeyHint={isLastProd ? 'done' : 'next'}
+                      enterKeyHint="next"
                       value={(data[p.id] || {}).count || ''}
                       onChange={e => setField(type, p.id, 'count', e.target.value.replace(/[^0-9]/g, ''))}
                       onKeyDown={e => handleCountKey(e, idx)}
+                      onFocus={e => setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)}
                       placeholder="0"
                     />
                     <span className="free-row-unit">個</span>
@@ -196,6 +202,7 @@ export default function FreeScreen({ products, todayFree }) {
                       value={(data[p.id] || {}).ml || ''}
                       onChange={e => setField(type, p.id, 'ml', e.target.value.replace(/[^0-9]/g, ''))}
                       onKeyDown={e => handleMlKey(e, idx)}
+                      onFocus={e => setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)}
                       placeholder="0"
                     />
                     <span className="free-row-unit">ml</span>

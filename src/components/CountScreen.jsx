@@ -9,7 +9,8 @@ const ICON_COLORS = [
   '#48DBFB', '#C8D6E5', '#FF6348', '#2ED573',
 ];
 
-function colorOf(id) {
+function colorOf(id, product) {
+  if (product?.color) return product.color;
   let h = 0;
   for (let i = 0; i < id.length; i++) h = id.charCodeAt(i) + ((h << 5) - h);
   return ICON_COLORS[Math.abs(h) % ICON_COLORS.length];
@@ -75,13 +76,24 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
   const today = new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' });
 
   // ---- 通常モード：長押しでジグル ----
+  const pressOrigin = useRef(null);
   const startPress = (e) => {
     if (e?.cancelable) e.preventDefault();
     clearTimeout(pressTimer.current);
     didLong.current = false;
+    const pt = e.touches ? e.touches[0] : e;
+    pressOrigin.current = { x: pt.clientX, y: pt.clientY };
     pressTimer.current = setTimeout(() => { didLong.current = true; setJiggling(true); }, 600);
   };
-  const endPress = () => clearTimeout(pressTimer.current);
+  const cancelPressIfMoved = (e) => {
+    if (!pressOrigin.current) return;
+    const pt = e.touches ? e.touches[0] : e;
+    if (Math.hypot(pt.clientX - pressOrigin.current.x, pt.clientY - pressOrigin.current.y) > 10) {
+      clearTimeout(pressTimer.current);
+      pressOrigin.current = null;
+    }
+  };
+  const endPress = () => { clearTimeout(pressTimer.current); pressOrigin.current = null; };
   const handleTap = (id) => { if (didLong.current || jiggleRef.current) return; updateOrderCount(id, 1); };
 
   // ---- 編集モード：ドラッグ ----
@@ -210,6 +222,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                 key={i}
                 className={`icon-cell ${isHover ? 'cell-hover' : ''}`}
                 onTouchStart={startPress}
+                onTouchMove={cancelPressIfMoved}
                 onTouchEnd={() => {
                   if (!p && jiggleRef.current) {
                     if (!didLong.current) stopJiggling();
@@ -217,6 +230,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                   } else { endPress(); }
                 }}
                 onMouseDown={startPress}
+                onMouseMove={cancelPressIfMoved}
                 onMouseUp={() => {
                   if (!p && jiggleRef.current) {
                     if (!didLong.current) stopJiggling();
@@ -230,7 +244,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                     <div className="icon-wrapper" style={{ opacity: dragging ? 0.22 : 1 }}>
                       <button
                         className="icon-btn"
-                        style={{ background: colorOf(p.id), animationDelay: `${(i % 2) * 0.11}s` }}
+                        style={{ background: colorOf(p.id, p), animationDelay: `${(i % 2) * 0.11}s` }}
                         draggable={false}
                         onTouchStart={(e) => { if (jiggling) startDrag(e.touches[0].clientX, e.touches[0].clientY, i, p.id); else startPress(); }}
                         onTouchEnd={(e) => { if (!jiggling) { endPress(); handleTap(p.id); } }}
@@ -245,16 +259,16 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                       {count > 0 && !dragging && (
                         <span className="count-badge">{count > 99 ? '99+' : count}</span>
                       )}
+                      {jiggling && !dragging && (
+                        <button
+                          className="icon-dec-btn"
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); updateOrderCount(p.id, -1); }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); updateOrderCount(p.id, -1); }}
+                        >−1</button>
+                      )}
                     </div>
-                    {jiggling && !dragging && (
-                      <button
-                        className="icon-dec-btn"
-                        onTouchStart={(e) => e.stopPropagation()}
-                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); updateOrderCount(p.id, -1); }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => { e.stopPropagation(); updateOrderCount(p.id, -1); }}
-                      >−1</button>
-                    )}
                     <div className="icon-label" style={{ opacity: dragging ? 0.22 : 1 }}>{p.name}</div>
                   </div>
                 ) : (
@@ -271,7 +285,7 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
         if (!p) return null;
         return (
           <div className="drag-ghost" style={{ left: ghost.x, top: ghost.y }}>
-            <div className="icon-btn" style={{ background: colorOf(p.id), width: 68, height: 68, borderRadius: 16 }}>
+            <div className="icon-btn" style={{ background: colorOf(p.id, p), width: 68, height: 68, borderRadius: 16 }}>
               <span className="icon-letter">{p.name.charAt(0)}</span>
             </div>
             <div className="icon-label">{p.name}</div>

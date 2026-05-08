@@ -693,19 +693,26 @@ body {
 }
 
 .icon-dec-btn {
-  margin-top: 3px;
-  padding: 3px 14px;
-  background: rgba(255, 59, 48, 0.10);
-  color: var(--danger);
-  border: 1.5px solid rgba(255, 59, 48, 0.35);
-  border-radius: 10px;
-  font-size: 0.8rem;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 26px;
+  background: rgba(0, 0, 0, 0.52);
+  color: #fff;
+  border: none;
+  border-radius: 0 0 18px 18px;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: opacity 0.1s;
+  transition: background 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
 }
-.icon-dec-btn:active { opacity: 0.5; }
+.icon-dec-btn:active { background: rgba(255, 59, 48, 0.75); }
 
 .icon-label {
   font-size: 0.7rem;
@@ -942,3 +949,83 @@ body {
 
 .free-summary-diff { font-weight: 700; color: var(--text-sub); }
 .free-summary-diff.positive { color: var(--primary); }
+
+/* ---- Swipe-to-delete list items ---- */
+
+.swipe-item-wrap {
+  position: relative;
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.swipe-item-delete-bg {
+  position: absolute;
+  inset: 0;
+  background: var(--danger);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 16px;
+  border-radius: var(--radius);
+}
+
+.swipe-delete-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 4px;
+}
+
+.swipe-item-content {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.18s ease;
+  will-change: transform;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.list-item-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+
+/* ---- Color Picker ---- */
+
+.color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.color-swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  transition: transform 0.1s, border-color 0.1s;
+  flex-shrink: 0;
+}
+
+.color-swatch.selected {
+  border-color: rgba(255,255,255,0.9);
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.18);
+  transform: scale(1.18);
+}
