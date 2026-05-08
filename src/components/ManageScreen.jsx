@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 export default function ManageScreen({ categories, products, post }) {
-  const [subTab, setSubTab] = useState('products');
+  const [subTab, setSubTab] = useState('order');
 
   return (
     <div className="screen">
@@ -11,120 +11,190 @@ export default function ManageScreen({ categories, products, post }) {
       </div>
 
       <div className="sub-tabs">
-        <button
-          className={`sub-tab ${subTab === 'products' ? 'active' : ''}`}
-          onClick={() => setSubTab('products')}
-        >商品管理</button>
-        <button
-          className={`sub-tab ${subTab === 'categories' ? 'active' : ''}`}
-          onClick={() => setSubTab('categories')}
-        >カテゴリ管理</button>
+        {[['order', 'オーダー'], ['free', 'フリー'], ['categories', 'カテゴリ']].map(([id, label]) => (
+          <button
+            key={id}
+            className={`sub-tab${subTab === id ? ' active' : ''}`}
+            onClick={() => setSubTab(id)}
+          >{label}</button>
+        ))}
       </div>
 
-      {subTab === 'products'   && <ProductManager   categories={categories} products={products} post={post} />}
-      {subTab === 'categories' && <CategoryManager  categories={categories} post={post} />}
+      {subTab === 'order'      && <OrderManager      products={products} post={post} />}
+      {subTab === 'free'       && <FreeManager       products={products} post={post} />}
+      {subTab === 'categories' && <CategoryManager   categories={categories} post={post} />}
     </div>
   );
 }
 
-// ---- 商品管理 ----
+// ---- 共通：削除ハンドラ ----
 
-function ProductManager({ categories, products, post }) {
-  const [editing, setEditing] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('この商品を削除しますか？')) return;
+function useDelete(post) {
+  return async (id) => {
+    if (!window.confirm('削除しますか？')) return;
     await post('deleteProduct', { id });
   };
+}
+
+// ---- オーダードリンク管理 ----
+
+function OrderManager({ products, post }) {
+  const orderProds = products.filter(p => p.type === 'order');
+  const [editing, setEditing] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const handleDelete = useDelete(post);
 
   return (
     <>
       <div className="section-header">
-        <h2>商品一覧</h2>
+        <h2>オーダードリンク一覧</h2>
         <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>
           ＋ 追加
         </button>
       </div>
 
-      {products.length === 0 && <div className="empty-state">商品がありません。</div>}
+      {orderProds.length === 0 && <div className="empty-state">オーダードリンクがありません。</div>}
 
-      {products.map(p => {
-        const cat = categories.find(c => c.id === p.categoryId);
-        return (
-          <div key={p.id} className="list-item">
-            <div className="list-item-info">
-              <div className="list-item-name">
-                {p.name}
-                <span className={`badge ${p.type === 'order' ? 'badge-order' : 'badge-free'}`}>
-                  {p.type === 'order' ? 'オーダー' : 'フリー'}
-                </span>
-              </div>
-              <div className="list-item-sub">
-                {cat?.name || '未分類'}{p.volume || p.unit ? ` ／ ${p.volume}${p.unit}` : ''}
-              </div>
-            </div>
-            <div className="list-item-actions">
-              <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(p); setShowForm(true); }}>
-                編集
-              </button>
-              <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>
-                削除
-              </button>
-            </div>
+      {orderProds.map(p => (
+        <div key={p.id} className="list-item">
+          <div className="list-item-info">
+            <div className="list-item-name">{p.name}</div>
           </div>
-        );
-      })}
+          <div className="list-item-actions">
+            <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(p); setShowForm(true); }}>編集</button>
+            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>削除</button>
+          </div>
+        </div>
+      ))}
 
       {showForm && (
-        <ProductForm
-          categories={categories}
-          product={editing}
-          post={post}
-          onClose={() => setShowForm(false)}
-        />
+        <OrderForm product={editing} post={post} onClose={() => setShowForm(false)} />
       )}
     </>
   );
 }
 
-function ProductForm({ categories, product, post, onClose }) {
-  const [form, setForm] = useState({
-    name:         product?.name         || '',
-    type:         product?.type         || 'order',
-    categoryId:   product?.categoryId   || '',
-    unit:         product?.unit         || '',
-    volume:       product?.volume       || '',
-    stock:        product?.stock        ?? 0,
-    reorderPoint: product?.reorderPoint ?? 0,
-  });
+function OrderForm({ product, post, onClose }) {
+  const [name, setName] = useState(product?.name || '');
+  const nameRef = useRef(null);
 
-  const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
-
-  // Enter キーで次フィールドへ移動
-  const refs = useRef([]);
-  const onKey = (e, idx) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const next = refs.current[idx + 1];
-    if (next) next.focus();
-    else e.target.blur();
-  };
-
-  // 即閉じてバックグラウンドで保存
   const handleSubmit = (e) => {
     e.preventDefault();
     document.activeElement?.blur();
     onClose();
-    const action  = product ? 'updateProduct' : 'addProduct';
-    const payload = product ? { id: product.id, ...form } : form;
-    post(action, payload).catch(console.error);
+    const payload = { name, type: 'order', categoryId: product?.categoryId || '', unit: product?.unit || '', volume: product?.volume || '', stock: product?.stock ?? 0, reorderPoint: product?.reorderPoint ?? 0 };
+    if (product) {
+      post('updateProduct', { id: product.id, ...payload }).catch(console.error);
+    } else {
+      post('addProduct', payload).catch(console.error);
+    }
   };
 
   return createPortal(
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-sheet">
-        <div className="modal-title">{product ? '商品を編集' : '商品を追加'}</div>
+        <div className="modal-title">{product ? 'オーダードリンクを編集' : 'オーダードリンクを追加'}</div>
+        <form className="form" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">商品名 *</label>
+            <input
+              ref={nameRef}
+              className="form-input"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
+              enterKeyHint="done"
+              required
+              autoFocus
+            />
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn btn-secondary" onClick={onClose}>キャンセル</button>
+            <button type="submit" className="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ---- フリードリンク管理 ----
+
+function FreeManager({ products, post }) {
+  const freeProds = products.filter(p => p.type === 'free');
+  const [editing, setEditing] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const handleDelete = useDelete(post);
+
+  return (
+    <>
+      <div className="section-header">
+        <h2>フリードリンク一覧</h2>
+        <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>
+          ＋ 追加
+        </button>
+      </div>
+
+      {freeProds.length === 0 && <div className="empty-state">フリードリンクがありません。</div>}
+
+      {freeProds.map(p => (
+        <div key={p.id} className="list-item">
+          <div className="list-item-info">
+            <div className="list-item-name">{p.name}</div>
+            <div className="list-item-sub">
+              {p.unit ? `容器込み ${p.unit}g` : ''}
+              {p.unit && p.volume ? ' ／ ' : ''}
+              {p.volume ? `${p.volume}ml` : ''}
+            </div>
+          </div>
+          <div className="list-item-actions">
+            <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(p); setShowForm(true); }}>編集</button>
+            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>削除</button>
+          </div>
+        </div>
+      ))}
+
+      {showForm && (
+        <FreeForm product={editing} post={post} onClose={() => setShowForm(false)} />
+      )}
+    </>
+  );
+}
+
+function FreeForm({ product, post, onClose }) {
+  const [form, setForm] = useState({
+    name:   product?.name   || '',
+    unit:   product?.unit   || '',   // 容器込みグラム
+    volume: product?.volume || '',   // 容量ml
+  });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const refs = useRef([]);
+  const onKey = (e, idx) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const next = refs.current[idx + 1];
+    if (next) next.focus({ preventScroll: true });
+    else e.target.blur();
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    document.activeElement?.blur();
+    onClose();
+    const payload = { name: form.name, type: 'free', categoryId: product?.categoryId || '', unit: form.unit, volume: form.volume, stock: product?.stock ?? 0, reorderPoint: product?.reorderPoint ?? 0 };
+    if (product) {
+      post('updateProduct', { id: product.id, ...payload }).catch(console.error);
+    } else {
+      post('addProduct', payload).catch(console.error);
+    }
+  };
+
+  return createPortal(
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-sheet">
+        <div className="modal-title">{product ? 'フリードリンクを編集' : 'フリードリンクを追加'}</div>
         <form className="form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">商品名 *</label>
@@ -136,81 +206,37 @@ function ProductForm({ categories, product, post, onClose }) {
               onKeyDown={e => onKey(e, 0)}
               enterKeyHint="next"
               required
+              autoFocus
             />
           </div>
-
           <div className="form-group">
-            <label className="form-label">タイプ</label>
-            <select className="form-select" value={form.type} onChange={e => set('type', e.target.value)}>
-              <option value="order">オーダー</option>
-              <option value="free">フリー</option>
-            </select>
+            <label className="form-label">容器込みグラム</label>
+            <input
+              ref={el => { refs.current[1] = el; }}
+              className="form-input"
+              type="text"
+              inputMode="tel"
+              value={form.unit}
+              onChange={e => set('unit', e.target.value.replace(/[^0-9]/g, ''))}
+              onKeyDown={e => onKey(e, 1)}
+              enterKeyHint="next"
+              placeholder="例: 520"
+            />
           </div>
-
           <div className="form-group">
-            <label className="form-label">カテゴリ</label>
-            <select className="form-select" value={form.categoryId} onChange={e => set('categoryId', e.target.value)}>
-              <option value="">未分類</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <label className="form-label">容量 (ml)</label>
+            <input
+              ref={el => { refs.current[2] = el; }}
+              className="form-input"
+              type="text"
+              inputMode="tel"
+              value={form.volume}
+              onChange={e => set('volume', e.target.value.replace(/[^0-9]/g, ''))}
+              onKeyDown={e => onKey(e, 2)}
+              enterKeyHint="done"
+              placeholder="例: 350"
+            />
           </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">容量</label>
-              <input
-                ref={el => { refs.current[1] = el; }}
-                className="form-input"
-                value={form.volume}
-                onChange={e => set('volume', e.target.value)}
-                onKeyDown={e => onKey(e, 1)}
-                enterKeyHint="next"
-                placeholder="350"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">単位</label>
-              <input
-                ref={el => { refs.current[2] = el; }}
-                className="form-input"
-                value={form.unit}
-                onChange={e => set('unit', e.target.value)}
-                onKeyDown={e => onKey(e, 2)}
-                enterKeyHint="next"
-                placeholder="ml"
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">在庫数</label>
-              <input
-                ref={el => { refs.current[3] = el; }}
-                className="form-input"
-                type="text"
-                inputMode="numeric"
-                value={form.stock}
-                onChange={e => set('stock', e.target.value.replace(/[^0-9]/g, ''))}
-                onKeyDown={e => onKey(e, 3)}
-                enterKeyHint="next"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">発注点</label>
-              <input
-                ref={el => { refs.current[4] = el; }}
-                className="form-input"
-                type="text"
-                inputMode="numeric"
-                value={form.reorderPoint}
-                onChange={e => set('reorderPoint', e.target.value.replace(/[^0-9]/g, ''))}
-                onKeyDown={e => onKey(e, 4)}
-                enterKeyHint="done"
-              />
-            </div>
-          </div>
-
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>キャンセル</button>
             <button type="submit" className="btn btn-primary">保存</button>
@@ -225,7 +251,7 @@ function ProductForm({ categories, product, post, onClose }) {
 // ---- カテゴリ管理 ----
 
 function CategoryManager({ categories, post }) {
-  const [name, setName]   = useState('');
+  const [name, setName]     = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleAdd = async (e) => {
@@ -255,6 +281,7 @@ function CategoryManager({ categories, post }) {
               className="form-input"
               value={name}
               onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
               placeholder="例：ビール"
               required
             />

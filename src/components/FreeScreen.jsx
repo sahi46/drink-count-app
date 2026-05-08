@@ -53,16 +53,22 @@ export default function FreeScreen({ products, todayFree }) {
     });
   }, [scheduleSave]);
 
-  // Enter キーで次フィールドへ
-  const inputRefs = useRef([]);
-  const handleKey = (e, idx, isLast) => {
+  // Enter キー: 個数→次の商品の個数、ml→次の商品のml
+  const countRefs = useRef([]);
+  const mlRefs    = useRef([]);
+  const handleCountKey = (e, idx) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    if (isLast) {
-      e.target.blur();
-    } else {
-      inputRefs.current[idx + 1]?.focus();
-    }
+    const next = countRefs.current[idx + 1];
+    if (next) next.focus({ preventScroll: true });
+    else e.target.blur();
+  };
+  const handleMlKey = (e, idx) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const next = mlRefs.current[idx + 1];
+    if (next) next.focus({ preventScroll: true });
+    else e.target.blur();
   };
 
   // ---- ドラッグ並べ替え（グリップ即ドラッグ・間に挿入）----
@@ -168,28 +174,28 @@ export default function FreeScreen({ products, todayFree }) {
                 <div className="free-row-inputs">
                   <div className="free-row-field">
                     <input
-                      ref={el => { inputRefs.current[idx * 2] = el; }}
+                      ref={el => { countRefs.current[idx] = el; }}
                       className="free-row-input"
                       type="text"
                       inputMode="tel"
-                      enterKeyHint="next"
+                      enterKeyHint={isLastProd ? 'done' : 'next'}
                       value={(data[p.id] || {}).count || ''}
                       onChange={e => setField(type, p.id, 'count', e.target.value.replace(/[^0-9]/g, ''))}
-                      onKeyDown={e => handleKey(e, idx * 2, false)}
+                      onKeyDown={e => handleCountKey(e, idx)}
                       placeholder="0"
                     />
                     <span className="free-row-unit">個</span>
                   </div>
                   <div className="free-row-field">
                     <input
-                      ref={el => { inputRefs.current[idx * 2 + 1] = el; }}
+                      ref={el => { mlRefs.current[idx] = el; }}
                       className="free-row-input"
                       type="text"
                       inputMode="tel"
                       enterKeyHint={isLastProd ? 'done' : 'next'}
                       value={(data[p.id] || {}).ml || ''}
                       onChange={e => setField(type, p.id, 'ml', e.target.value.replace(/[^0-9]/g, ''))}
-                      onKeyDown={e => handleKey(e, idx * 2 + 1, isLastProd)}
+                      onKeyDown={e => handleMlKey(e, idx)}
                       placeholder="0"
                     />
                     <span className="free-row-unit">ml</span>

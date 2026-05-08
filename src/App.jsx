@@ -58,19 +58,40 @@ export default function App() {
 
   // iOS キーボードが閉じた後の空白対策
   useEffect(() => {
+    const vv = window.visualViewport;
+    let inputBlurred = false;
+
     const onBlur = (e) => {
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-      setTimeout(() => {
-        window.scrollTo(0, 0);
-        const el = screenAreaRef.current;
-        if (el) {
-          const max = el.scrollHeight - el.clientHeight;
-          if (el.scrollTop > max) el.scrollTop = Math.max(0, max);
-        }
-      }, 300);
+      inputBlurred = true;
     };
+
+    const fixScroll = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      const el = screenAreaRef.current;
+      if (el) {
+        const max = el.scrollHeight - el.clientHeight;
+        if (el.scrollTop > max) el.scrollTop = Math.max(0, max);
+      }
+    };
+
+    const onVVResize = () => {
+      if (!inputBlurred) return;
+      inputBlurred = false;
+      // キーボードが閉じきるまで複数回修正
+      fixScroll();
+      setTimeout(fixScroll, 100);
+      setTimeout(fixScroll, 300);
+    };
+
     window.addEventListener('focusout', onBlur, true);
-    return () => window.removeEventListener('focusout', onBlur, true);
+    vv?.addEventListener('resize', onVVResize);
+    return () => {
+      window.removeEventListener('focusout', onBlur, true);
+      vv?.removeEventListener('resize', onVVResize);
+    };
   }, []);
 
   useEffect(() => {
