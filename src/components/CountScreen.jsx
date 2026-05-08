@@ -228,15 +228,6 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                 {p ? (
                   <div className={`icon-item ${jiggling ? 'jiggling' : ''}`}>
                     <div className="icon-wrapper" style={{ opacity: dragging ? 0.22 : 1 }}>
-                      {jiggling && (
-                        <button
-                          className="minus-badge"
-                          onTouchStart={(e) => e.stopPropagation()}
-                          onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); updateOrderCount(p.id, -1); }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => { e.stopPropagation(); updateOrderCount(p.id, -1); }}
-                        >−</button>
-                      )}
                       <button
                         className="icon-btn"
                         style={{ background: colorOf(p.id), animationDelay: `${(i % 2) * 0.11}s` }}
@@ -249,12 +240,21 @@ export default function CountScreen({ products, todayOrders, iconPositions, save
                         onClick={(e) => { if (e.pointerType !== 'touch') handleTap(p.id); }}
                         onContextMenu={(e) => e.preventDefault()}
                       >
-                        <span className="icon-letter">{p.name.charAt(0)}</span>
+                        <span className="icon-name">{p.name}</span>
                       </button>
                       {count > 0 && !dragging && (
                         <span className="count-badge">{count > 99 ? '99+' : count}</span>
                       )}
                     </div>
+                    {jiggling && !dragging && (
+                      <button
+                        className="icon-dec-btn"
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); updateOrderCount(p.id, -1); }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); updateOrderCount(p.id, -1); }}
+                      >−1</button>
+                    )}
                     <div className="icon-label" style={{ opacity: dragging ? 0.22 : 1 }}>{p.name}</div>
                   </div>
                 ) : (
