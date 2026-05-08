@@ -983,19 +983,17 @@ body {
   padding: 8px 4px;
 }
 
-/* コンテンツはz-index:1でdel bgの上に乗る → 透けない */
+/* コンテンツはz-index:1でdel bgの上 → 不透明で完全に隠す */
 .swipe-item-content {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
   padding: 14px 16px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: #fff;
+  border: 1px solid rgba(220, 220, 230, 0.8);
   border-radius: var(--radius);
-  box-shadow: var(--glass-shadow);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
   transition: transform 0.18s ease;
   gap: 10px;
   cursor: pointer;
@@ -1019,12 +1017,10 @@ body {
   align-items: center;
   gap: 10px;
   padding: 13px 14px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: #fff;
+  border: 1px solid rgba(220, 220, 230, 0.8);
   border-radius: var(--radius);
-  box-shadow: var(--glass-shadow);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
   margin-bottom: 10px;
   transition: opacity 0.15s;
 }

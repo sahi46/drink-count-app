@@ -44,7 +44,9 @@ export default function App() {
       setTodayOrders({ ...merged });
 
       setTodayFree(d.todayFree || {});
-      if (d.iconPositions !== undefined) setIconPositions(d.iconPositions);
+      if (d.iconPositions    !== undefined) setIconPositions(d.iconPositions);
+      if (d.manageOrderList  !== undefined) localStorage.setItem('manageOrderList', JSON.stringify(d.manageOrderList));
+      if (d.manageFreeList   !== undefined) localStorage.setItem('manageFreeList',  JSON.stringify(d.manageFreeList));
       setError(null);
     } catch (err) {
       if (!silent) setError(err.message);
@@ -113,6 +115,10 @@ export default function App() {
     });
   }, []);
 
+  const saveManageOrder = useCallback((type, order) => {
+    gasPost('saveManageOrder', { type, order }).catch(() => {});
+  }, []);
+
   const toggleVisibility = useCallback((productId) => {
     setHiddenProducts(prev => {
       const next = { ...prev };
@@ -156,7 +162,7 @@ export default function App() {
   const screenProps = {
     categories, products, todayOrders, todayFree,
     iconPositions, iconColors, hiddenProducts,
-    post, savePositions, saveIconColor, toggleVisibility, updateOrderCount,
+    post, savePositions, saveIconColor, toggleVisibility, saveManageOrder, updateOrderCount,
     refresh: fetchAll,
   };
 
