@@ -63,10 +63,7 @@ export default function App() {
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
       const el = screenAreaRef.current;
-      if (el) {
-        const max = el.scrollHeight - el.clientHeight;
-        if (el.scrollTop > max) el.scrollTop = Math.max(0, max);
-      }
+      if (el) el.scrollTop = 0;
     };
 
     let timers = [];
@@ -80,20 +77,29 @@ export default function App() {
     const onFocusOut = (e) => {
       if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
       clearTimers();
-      // 次の input にフォーカスが移る場合はキャンセルされる
-      // 移らない場合（キーボードが閉じる）は fixScroll を実行
       timers = [
-        setTimeout(fixScroll, 350),
-        setTimeout(fixScroll, 650),
+        setTimeout(fixScroll, 50),
+        setTimeout(fixScroll, 300),
+        setTimeout(fixScroll, 600),
       ];
+    };
+
+    // visualViewport リサイズ（キーボード閉じ検出の補完）
+    const vv = window.visualViewport;
+    const onVVResize = () => {
+      if (vv && vv.height > window.innerHeight * 0.75) {
+        fixScroll();
+      }
     };
 
     window.addEventListener('focusin',  onFocusIn,  true);
     window.addEventListener('focusout', onFocusOut, true);
+    vv?.addEventListener('resize', onVVResize);
     return () => {
       clearTimers();
       window.removeEventListener('focusin',  onFocusIn,  true);
       window.removeEventListener('focusout', onFocusOut, true);
+      vv?.removeEventListener('resize', onVVResize);
     };
   }, []);
 

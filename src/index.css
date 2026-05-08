@@ -24,6 +24,7 @@ html {
 body {
   min-height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
   background: linear-gradient(160deg, #E8EDF8 0%, #EDE8F5 50%, #E8F2EE 100%);
 }
 
@@ -72,7 +73,7 @@ body {
   position: relative;
   overflow-y: auto;
   overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 
