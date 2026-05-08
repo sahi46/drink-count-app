@@ -609,7 +609,7 @@ body {
 .count-screen .free-grid {
   flex: 1;
   min-height: 0;
-  align-content: stretch;
+  grid-auto-rows: 1fr;
 }
 
 /* 行高さに合わせてセルの padding を調整 */
