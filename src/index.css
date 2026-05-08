@@ -68,9 +68,8 @@ body {
 
 .screen-area {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   min-height: 0;
+  position: relative;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -577,12 +576,12 @@ body {
 /* ---- Count Screen - Icon Grid ---- */
 
 .screen.count-screen {
-  flex: 1;
-  min-height: 0;
-  box-sizing: border-box;
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   padding-bottom: 8px;
+  overflow: hidden;
 }
 
 .count-screen .screen-header { margin-bottom: 24px; }
