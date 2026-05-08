@@ -58,14 +58,6 @@ export default function App() {
 
   // iOS キーボードが閉じた後の空白対策
   useEffect(() => {
-    const vv = window.visualViewport;
-    let inputBlurred = false;
-
-    const onBlur = (e) => {
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
-      inputBlurred = true;
-    };
-
     const fixScroll = () => {
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
@@ -77,20 +69,31 @@ export default function App() {
       }
     };
 
-    const onVVResize = () => {
-      if (!inputBlurred) return;
-      inputBlurred = false;
-      // キーボードが閉じきるまで複数回修正
-      fixScroll();
-      setTimeout(fixScroll, 100);
-      setTimeout(fixScroll, 300);
+    let timers = [];
+    const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+
+    const onFocusIn = (e) => {
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
+      clearTimers();
     };
 
-    window.addEventListener('focusout', onBlur, true);
-    vv?.addEventListener('resize', onVVResize);
+    const onFocusOut = (e) => {
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') return;
+      clearTimers();
+      // 次の input にフォーカスが移る場合はキャンセルされる
+      // 移らない場合（キーボードが閉じる）は fixScroll を実行
+      timers = [
+        setTimeout(fixScroll, 350),
+        setTimeout(fixScroll, 650),
+      ];
+    };
+
+    window.addEventListener('focusin',  onFocusIn,  true);
+    window.addEventListener('focusout', onFocusOut, true);
     return () => {
-      window.removeEventListener('focusout', onBlur, true);
-      vv?.removeEventListener('resize', onVVResize);
+      clearTimers();
+      window.removeEventListener('focusin',  onFocusIn,  true);
+      window.removeEventListener('focusout', onFocusOut, true);
     };
   }, []);
 
