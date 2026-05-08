@@ -1080,20 +1080,38 @@ body {
   font-weight: 600;
 }
 
-/* ---- Visibility toggle ---- */
+/* ---- Visibility badge（リスト表示用・読み取り専用）---- */
+
+.vis-badge {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(52, 199, 89, 0.14);
+  color: #1a7f37;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.vis-badge.hidden {
+  background: rgba(142, 142, 147, 0.13);
+  color: var(--text-sub);
+}
+
+/* ---- Visibility toggle（編集フォーム専用）---- */
 
 .vis-toggle {
-  flex-shrink: 0;
-  padding: 5px 10px;
-  border-radius: 20px;
-  font-size: 0.72rem;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 0.9rem;
   font-weight: 700;
   border: none;
   cursor: pointer;
   background: rgba(52, 199, 89, 0.15);
   color: #1a7f37;
-  white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  text-align: center;
 }
 .vis-toggle.hidden {
   background: rgba(142, 142, 147, 0.15);

@@ -58,7 +58,8 @@ function useDragSort(setOrder) {
 
   const nearestGap = useCallback((cy) => {
     if (!listRef.current) return 0;
-    const rows = [...listRef.current.querySelectorAll('.sort-row')];
+    // ソートモード不要 → 常に swipe-item-wrap を参照
+    const rows = [...listRef.current.querySelectorAll('.swipe-item-wrap')];
     if (rows.length === 0) return 0;
     const gaps = [rows[0].getBoundingClientRect().top];
     for (let i = 0; i < rows.length - 1; i++) {
@@ -109,19 +110,12 @@ function useDragSort(setOrder) {
     };
   }, [dragIdx, moveDrag, commitDrag]);
 
-  const startDrag = useCallback((e, idx) => {
-    e.preventDefault();
-    const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    dragFrom.current = idx; gapRef.current = idx;
-    setDragIdx(idx); setGhostY(cy); setGapIdx(idx);
-  }, []);
-
   const startDragAt = useCallback((idx, y) => {
     dragFrom.current = idx; gapRef.current = idx;
     setDragIdx(idx); setGhostY(y); setGapIdx(idx);
   }, []);
 
-  return { dragIdx, gapIdx, ghostY, listRef, startDrag, startDragAt };
+  return { dragIdx, gapIdx, ghostY, listRef, startDragAt };
 }
 
 // ---- ManageScreen ----
@@ -142,8 +136,8 @@ export default function ManageScreen({ categories, products, post, iconColors, s
   );
 }
 
-// ---- 長押し＋スワイプ削除＋タップ編集 統合コンポーネント ----
-function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, children }) {
+// ---- 長押し→即ドラッグ + 左スワイプ削除 + タップ編集 ----
+function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, children, isDragging }) {
   const [offset, setOffset] = useState(0);
   const wrapRef  = useRef(null);
   const touchRef = useRef(null);
@@ -178,6 +172,7 @@ function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, 
   const onTouchMove = (e) => {
     const tc = touchRef.current;
     if (!tc) return;
+    if (tc.didLong) return; // 長押しドラッグ中は親が処理
     const dx = e.touches[0].clientX - tc.startX;
     const dy = e.touches[0].clientY - tc.startY;
     if ((Math.abs(dx) > 8 || Math.abs(dy) > 8) && tc.timer) {
@@ -196,7 +191,7 @@ function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, 
     if (!tc) return;
     if (tc.timer) clearTimeout(tc.timer);
     touchRef.current = null;
-    if (tc.didLong) return;
+    if (tc.didLong) return; // 親のdocument touchendが処理
     const dx = e.changedTouches[0].clientX - tc.startX;
     const dy = e.changedTouches[0].clientY - tc.startY;
     if (tc.isHoriz) {
@@ -208,7 +203,10 @@ function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, 
   };
 
   return (
-    <div ref={wrapRef} className="swipe-item-wrap" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+    <div ref={wrapRef} className="swipe-item-wrap"
+      style={{ opacity: isDragging ? 0.25 : 1 }}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+    >
       <div className="swipe-item-delete-bg">
         <button className="swipe-delete-btn"
           onTouchEnd={(e) => { e.stopPropagation(); setOffset(0); onDelete(); }}
@@ -225,7 +223,13 @@ function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, 
   );
 }
 
-// ---- 表示トグル（共通）----
+// ---- 表示状態バッジ（読み取り専用・リスト用）----
+function VisibilityBadge({ id, hiddenProducts }) {
+  const hidden = !!hiddenProducts?.[id];
+  return <span className={`vis-badge${hidden ? ' hidden' : ''}`}>{hidden ? '非表示' : '表示中'}</span>;
+}
+
+// ---- 表示トグルボタン（編集フォーム専用）----
 function VisibilityToggle({ id, hiddenProducts, toggleVisibility }) {
   const hidden = !!hiddenProducts?.[id];
   return (
@@ -241,11 +245,10 @@ function OrderManager({ products, post, iconColors, saveIconColor, hiddenProduct
   const orderProds = products.filter(p => p.type === 'order');
   const onOrderChange = useCallback(o => saveManageOrder?.('order', o), [saveManageOrder]);
   const [order, setOrder] = useSortList('manageOrderList', orderProds, onOrderChange);
-  const [sortMode, setSortMode] = useState(false);
   const [editing, setEditing]   = useState(null);
   const [showForm, setShowForm] = useState(false);
 
-  const { dragIdx, gapIdx, ghostY, listRef, startDrag, startDragAt } = useDragSort(setOrder);
+  const { dragIdx, gapIdx, ghostY, listRef, startDragAt } = useDragSort(setOrder);
   const orderedItems = order.map(id => orderProds.find(p => p.id === id)).filter(Boolean);
 
   const handleDelete = useCallback(async (id) => {
@@ -254,7 +257,6 @@ function OrderManager({ products, post, iconColors, saveIconColor, hiddenProduct
   }, [post]);
 
   const handleLongPress = useCallback((idx, y) => {
-    setSortMode(true);
     startDragAt(idx, y);
   }, [startDragAt]);
 
@@ -262,51 +264,34 @@ function OrderManager({ products, post, iconColors, saveIconColor, hiddenProduct
     <>
       <div className="section-header">
         <h2>オーダードリンク一覧</h2>
-        <div className="section-header-actions">
-          {sortMode
-            ? <button className="btn btn-primary btn-sm" onClick={() => setSortMode(false)}>完了</button>
-            : <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>＋ 追加</button>
-          }
-        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>＋ 追加</button>
       </div>
 
       {orderedItems.length === 0 && <div className="empty-state">オーダードリンクがありません。</div>}
 
       <div ref={listRef}>
-        {orderedItems.map((p, idx) => {
-          const color = iconColors?.[p.id] || '#54A0FF';
-          const vis   = <VisibilityToggle id={p.id} hiddenProducts={hiddenProducts} toggleVisibility={toggleVisibility} />;
-          if (sortMode) {
-            return (
-              <div key={p.id}>
-                {dragIdx !== -1 && gapIdx === idx && <div className="sort-drop-line" />}
-                <div className={`sort-row${dragIdx === idx ? ' sort-row-dragging' : ''}`}>
-                  <div className="sort-row-grip" onTouchStart={e => startDrag(e, idx)} onMouseDown={e => startDrag(e, idx)}>⠿</div>
-                  <span className="list-item-color-dot" style={{ background: color }} />
-                  <div className="sort-row-name">{p.name}</div>
-                  {vis}
-                </div>
-              </div>
-            );
-          }
-          return (
-            <InteractiveItem key={p.id} idx={idx}
+        {orderedItems.map((p, idx) => (
+          <div key={p.id}>
+            {dragIdx !== -1 && gapIdx === idx && <div className="sort-drop-line" />}
+            <InteractiveItem
+              idx={idx}
+              isDragging={dragIdx === idx}
               onEdit={() => { setEditing(p); setShowForm(true); }}
               onDelete={() => handleDelete(p.id)}
               onLongPress={handleLongPress}
-              colorDot={color}
-              extra={vis}
+              colorDot={iconColors?.[p.id] || '#54A0FF'}
+              extra={<VisibilityBadge id={p.id} hiddenProducts={hiddenProducts} />}
             >
               <div className="list-item-name">{p.name}</div>
             </InteractiveItem>
-          );
-        })}
-        {sortMode && dragIdx !== -1 && gapIdx === orderedItems.length && <div className="sort-drop-line" />}
+          </div>
+        ))}
+        {dragIdx !== -1 && gapIdx === orderedItems.length && <div className="sort-drop-line" />}
       </div>
 
-      {sortMode && ghostY !== null && dragIdx >= 0 && orderedItems[dragIdx] && createPortal(
+      {ghostY !== null && dragIdx >= 0 && orderedItems[dragIdx] && createPortal(
         <div className="sort-drag-ghost" style={{ top: ghostY }}>
-          <span className="sort-row-grip">⠿</span>
+          <span className="list-item-color-dot" style={{ background: iconColors?.[orderedItems[dragIdx].id] || '#54A0FF', flexShrink: 0 }} />
           <span>{orderedItems[dragIdx].name}</span>
         </div>, document.body
       )}
@@ -349,13 +334,9 @@ function OrderForm({ product, post, iconColors, saveIconColor, hiddenProducts, t
         <div className="form">
           <div className="form-group">
             <label className="form-label">商品名 *</label>
-            <input
-              className="form-input"
-              value={name}
-              onChange={e => setName(e.target.value)}
+            <input className="form-input" value={name} onChange={e => setName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
-              enterKeyHint="done"
-            />
+              enterKeyHint="done" />
           </div>
           <div className="form-group">
             <label className="form-label">アイコンカラー</label>
@@ -395,11 +376,10 @@ function FreeManager({ products, post, hiddenProducts, toggleVisibility, saveMan
   const freeProds = products.filter(p => p.type === 'free');
   const onOrderChange = useCallback(o => saveManageOrder?.('free', o), [saveManageOrder]);
   const [order, setOrder] = useSortList('manageFreeList', freeProds, onOrderChange);
-  const [sortMode, setSortMode] = useState(false);
   const [editing, setEditing]   = useState(null);
   const [showForm, setShowForm] = useState(false);
 
-  const { dragIdx, gapIdx, ghostY, listRef, startDrag, startDragAt } = useDragSort(setOrder);
+  const { dragIdx, gapIdx, ghostY, listRef, startDragAt } = useDragSort(setOrder);
   const orderedItems = order.map(id => freeProds.find(p => p.id === id)).filter(Boolean);
 
   const handleDelete = useCallback(async (id) => {
@@ -408,7 +388,6 @@ function FreeManager({ products, post, hiddenProducts, toggleVisibility, saveMan
   }, [post]);
 
   const handleLongPress = useCallback((idx, y) => {
-    setSortMode(true);
     startDragAt(idx, y);
   }, [startDragAt]);
 
@@ -416,40 +395,22 @@ function FreeManager({ products, post, hiddenProducts, toggleVisibility, saveMan
     <>
       <div className="section-header">
         <h2>フリードリンク一覧</h2>
-        <div className="section-header-actions">
-          {sortMode
-            ? <button className="btn btn-primary btn-sm" onClick={() => setSortMode(false)}>完了</button>
-            : <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>＋ 追加</button>
-          }
-        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => { setEditing(null); setShowForm(true); }}>＋ 追加</button>
       </div>
 
       {orderedItems.length === 0 && <div className="empty-state">フリードリンクがありません。</div>}
 
       <div ref={listRef}>
-        {orderedItems.map((p, idx) => {
-          const vis = <VisibilityToggle id={p.id} hiddenProducts={hiddenProducts} toggleVisibility={toggleVisibility} />;
-          if (sortMode) {
-            return (
-              <div key={p.id}>
-                {dragIdx !== -1 && gapIdx === idx && <div className="sort-drop-line" />}
-                <div className={`sort-row${dragIdx === idx ? ' sort-row-dragging' : ''}`}>
-                  <div className="sort-row-grip" onTouchStart={e => startDrag(e, idx)} onMouseDown={e => startDrag(e, idx)}>⠿</div>
-                  <div className="sort-row-name">
-                    {p.name}
-                    {(p.unit || p.volume) && <span className="sort-row-sub">{[p.unit && `${p.unit}g`, p.volume && `${p.volume}ml`].filter(Boolean).join(' / ')}</span>}
-                  </div>
-                  {vis}
-                </div>
-              </div>
-            );
-          }
-          return (
-            <InteractiveItem key={p.id} idx={idx}
+        {orderedItems.map((p, idx) => (
+          <div key={p.id}>
+            {dragIdx !== -1 && gapIdx === idx && <div className="sort-drop-line" />}
+            <InteractiveItem
+              idx={idx}
+              isDragging={dragIdx === idx}
               onEdit={() => { setEditing(p); setShowForm(true); }}
               onDelete={() => handleDelete(p.id)}
               onLongPress={handleLongPress}
-              extra={vis}
+              extra={<VisibilityBadge id={p.id} hiddenProducts={hiddenProducts} />}
             >
               <div className="list-item-info">
                 <div className="list-item-name">{p.name}</div>
@@ -460,14 +421,13 @@ function FreeManager({ products, post, hiddenProducts, toggleVisibility, saveMan
                 )}
               </div>
             </InteractiveItem>
-          );
-        })}
-        {sortMode && dragIdx !== -1 && gapIdx === orderedItems.length && <div className="sort-drop-line" />}
+          </div>
+        ))}
+        {dragIdx !== -1 && gapIdx === orderedItems.length && <div className="sort-drop-line" />}
       </div>
 
-      {sortMode && ghostY !== null && dragIdx >= 0 && orderedItems[dragIdx] && createPortal(
+      {ghostY !== null && dragIdx >= 0 && orderedItems[dragIdx] && createPortal(
         <div className="sort-drag-ghost" style={{ top: ghostY }}>
-          <span className="sort-row-grip">⠿</span>
           <span>{orderedItems[dragIdx].name}</span>
         </div>, document.body
       )}
