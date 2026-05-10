@@ -8,8 +8,11 @@ const ICON_COLORS = [
   '#A29BFE', '#FD79A8', '#FDCB6E', '#6C5CE7',
 ];
 
-// ---- 並び順をlocalStorage + GASに保存するhook ----
+// ---- 並び順管理 hook ----
+// localStorage に保存し、商品リストの追加・削除と同期する。
+// onOrderChange は GAS への非同期保存コールバック（失敗しても表示には影響しない）。
 function useSortList(key, items, onOrderChange) {
+  // コールバックを ref に保持することで setOrder の deps を増やさない
   const onChangeRef = useRef(onOrderChange);
   useEffect(() => { onChangeRef.current = onOrderChange; }, [onOrderChange]);
 
@@ -19,22 +22,26 @@ function useSortList(key, items, onOrderChange) {
     try {
       const saved = JSON.parse(localStorage.getItem(key) || '[]');
       const validIds = new Set(items.map(i => i.id));
+      // 保存済み順を維持しつつ、新規商品を末尾に追加
       const kept  = saved.filter(id => validIds.has(id));
       const added = items.filter(i => !kept.includes(i.id)).map(i => i.id);
       return [...kept, ...added];
     } catch { return items.map(i => i.id); }
   });
 
+  // 商品が追加・削除されたとき order を自動同期
   useEffect(() => {
     _setOrder(prev => {
       const validIds = new Set(items.map(i => i.id));
       const kept  = prev.filter(id => validIds.has(id));
       const added = items.filter(i => !kept.includes(i.id)).map(i => i.id);
       const next  = [...kept, ...added];
+      // 変化がなければ同じ参照を返して再レンダリングを抑制
       return next.join(',') === prev.join(',') ? prev : next;
     });
   }, [ids]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // localStorage と GAS に保存する setOrder ラッパー
   const setOrder = useCallback((update) => {
     _setOrder(prev => {
       const next = typeof update === 'function' ? update(prev) : update;
@@ -47,18 +54,21 @@ function useSortList(key, items, onOrderChange) {
   return [order, setOrder];
 }
 
-// ---- ドラッグ並び替えhook ----
+// ---- ドラッグ並び替え hook ----
+// 長押し後に startDragAt(idx, y) を呼ぶと、document レベルで
+// touchmove / touchend を監視してゴースト移動・ギャップ表示・確定を行う。
 function useDragSort(setOrder) {
-  const [dragIdx, setDragIdx] = useState(-1);
-  const [gapIdx,  setGapIdx]  = useState(-1);
-  const [ghostY,  setGhostY]  = useState(null);
-  const gapRef   = useRef(-1);
-  const dragFrom = useRef(-1);
-  const listRef  = useRef(null);
+  const [dragIdx, setDragIdx] = useState(-1); // ドラッグ中のインデックス (-1=非ドラッグ)
+  const [gapIdx,  setGapIdx]  = useState(-1); // 挿入ラインを表示する位置
+  const [ghostY,  setGhostY]  = useState(null); // ゴーストのY座標
+  const gapRef   = useRef(-1);  // useEffect クロージャから最新の gapIdx を参照するための ref
+  const dragFrom = useRef(-1);  // ドラッグ開始インデックス
+  const listRef  = useRef(null); // アイテムリストの DOM ref
 
+  // 指のY座標から最も近い「挿入ギャップ」のインデックスを返す
+  // ギャップは各行の上端・行間中点・最終行の下端の計 n+1 個
   const nearestGap = useCallback((cy) => {
     if (!listRef.current) return 0;
-    // ソートモード不要 → 常に swipe-item-wrap を参照
     const rows = [...listRef.current.querySelectorAll('.swipe-item-wrap')];
     if (rows.length === 0) return 0;
     const gaps = [rows[0].getBoundingClientRect().top];
@@ -73,13 +83,16 @@ function useDragSort(setOrder) {
     return best;
   }, []);
 
+  // ドラッグ終了時に order を確定する
   const commitDrag = useCallback(() => {
     const from = dragFrom.current;
     const gap  = gapRef.current;
+    // gap === from または from+1 は「元の位置」なのでスキップ
     if (gap !== -1 && gap !== from && gap !== from + 1) {
       setOrder(prev => {
         const next = [...prev];
         const [item] = next.splice(from, 1);
+        // from より後ろに挿入する場合は splice で要素が1つ減った分を補正
         next.splice(gap > from ? gap - 1 : gap, 0, item);
         return next;
       });
@@ -94,6 +107,8 @@ function useDragSort(setOrder) {
     gapRef.current = gap; setGapIdx(gap);
   }, [nearestGap]);
 
+  // dragIdx が変わったとき document にイベントを登録・解除
+  // passive: false で touchmove のデフォルトスクロールをキャンセル
   useEffect(() => {
     if (dragIdx === -1) return;
     const mv = (e) => { e.preventDefault(); moveDrag(e.touches ? e.touches[0].clientY : e.clientY); };
@@ -110,6 +125,7 @@ function useDragSort(setOrder) {
     };
   }, [dragIdx, moveDrag, commitDrag]);
 
+  // 長押しコールバックから呼ばれる：ドラッグを即開始する
   const startDragAt = useCallback((idx, y) => {
     dragFrom.current = idx; gapRef.current = idx;
     setDragIdx(idx); setGhostY(y); setGapIdx(idx);
@@ -136,13 +152,19 @@ export default function ManageScreen({ categories, products, post, iconColors, s
   );
 }
 
-// ---- 長押し→即ドラッグ + 左スワイプ削除 + タップ編集 ----
+// ---- 長押し → 即ドラッグ + 左スワイプ削除 + タップ編集 ----
+// 3つのジェスチャーを1コンポーネントで処理する。
+// ・長押し (600ms, 移動 8px 以内)  → onLongPress → 親がドラッグ開始
+// ・水平スワイプ (|dx| > |dy|*1.5) → 削除ボタンを露出
+// ・短タップ (移動 8px 以内)       → onEdit
 function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, children, isDragging }) {
-  const [offset, setOffset] = useState(0);
+  const [offset,  setOffset]  = useState(0);     // スワイプオフセット (0 〜 -72px)
+  const [pressed, setPressed] = useState(false);  // タップ中のプレスハイライト
   const wrapRef  = useRef(null);
-  const touchRef = useRef(null);
-  const THRESHOLD = 72;
+  const touchRef = useRef(null); // タッチ開始時の情報をまとめて保持
+  const THRESHOLD = 72; // 削除ボタンの幅 = スワイプ最大量
 
+  // 削除ボタンが露出しているとき、外側タップで閉じる
   useEffect(() => {
     if (offset >= 0) return;
     const close = (e) => {
@@ -158,13 +180,17 @@ function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, 
 
   const onTouchStart = (e) => {
     const t = e.touches[0];
+    setPressed(true); // タップ開始でハイライト
     touchRef.current = {
-      startX: t.clientX, startY: t.clientY, startOffset: offset,
-      isHoriz: null, didLong: false,
+      startX: t.clientX, startY: t.clientY,
+      startOffset: offset, // ドラッグ開始時点のスワイプ量（開いた状態から操作する場合に必要）
+      isHoriz: null,       // null=未確定 / true=横 / false=縦
+      didLong: false,
       timer: setTimeout(() => {
         if (!touchRef.current) return;
         touchRef.current.didLong = true;
-        onLongPress(idx, t.clientY);
+        setPressed(false); // 長押しドラッグ開始でハイライト解除
+        onLongPress(idx, t.clientY); // 親に通知 → 親がドラッグ開始
       }, 600),
     };
   };
@@ -172,15 +198,19 @@ function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, 
   const onTouchMove = (e) => {
     const tc = touchRef.current;
     if (!tc) return;
-    if (tc.didLong) return; // 長押しドラッグ中は親が処理
+    // 長押しでドラッグ中は親の document リスナーが処理するので何もしない
+    if (tc.didLong) return;
     const dx = e.touches[0].clientX - tc.startX;
     const dy = e.touches[0].clientY - tc.startY;
+    // 8px 以上移動したら長押しタイマーをキャンセル
     if ((Math.abs(dx) > 8 || Math.abs(dy) > 8) && tc.timer) {
       clearTimeout(tc.timer); tc.timer = null;
     }
+    // 最初の明確な動きで方向を確定（縦スクロール中に誤発しないための判定）
     if (tc.isHoriz === null) {
       if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
       tc.isHoriz = Math.abs(dx) > Math.abs(dy) * 1.5;
+      if (tc.isHoriz) setPressed(false); // 横スワイプ確定でハイライト解除
     }
     if (!tc.isHoriz) return;
     setOffset(Math.max(-THRESHOLD, Math.min(0, tc.startOffset + dx)));
@@ -191,29 +221,33 @@ function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, 
     if (!tc) return;
     if (tc.timer) clearTimeout(tc.timer);
     touchRef.current = null;
-    if (tc.didLong) return; // 親のdocument touchendが処理
+    setPressed(false); // タップ終了でハイライト解除
+    // 長押しドラッグは親の document touchend が処理済み → ここでは何もしない
+    if (tc.didLong) return;
     const dx = e.changedTouches[0].clientX - tc.startX;
     const dy = e.changedTouches[0].clientY - tc.startY;
     if (tc.isHoriz) {
+      // 半分以上スワイプしていれば全開、そうでなければ閉じる
       setOffset((tc.startOffset + dx) < -THRESHOLD / 2 ? -THRESHOLD : 0);
     } else if (Math.abs(dx) < 8 && Math.abs(dy) < 8) {
-      if (tc.startOffset < -8) setOffset(0);
+      if (tc.startOffset < -8) setOffset(0); // 開いていれば閉じる
       else onEdit();
     }
   };
 
   return (
     <div ref={wrapRef} className="swipe-item-wrap"
-      style={{ opacity: isDragging ? 0.25 : 1 }}
+      style={{ opacity: isDragging ? 0.25 : 1 }} // ドラッグ中は半透明にしてゴーストと区別
       onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
     >
+      {/* 削除ボタンは右端のみ配置。コンテンツが z-index:1 で上に乗るため透けない */}
       <div className="swipe-item-delete-bg">
         <button className="swipe-delete-btn"
           onTouchEnd={(e) => { e.stopPropagation(); setOffset(0); onDelete(); }}
           onClick={(e)    => { e.stopPropagation(); setOffset(0); onDelete(); }}
         >削除</button>
       </div>
-      <div className="swipe-item-content" style={{ transform: `translateX(${offset}px)` }}>
+      <div className={`swipe-item-content${pressed ? ' pressed' : ''}`} style={{ transform: `translateX(${offset}px)` }}>
         {colorDot && <span className="list-item-color-dot" style={{ background: colorDot }} />}
         <div className="swipe-item-body">{children}</div>
         {extra}
@@ -223,17 +257,18 @@ function InteractiveItem({ idx, onEdit, onDelete, onLongPress, colorDot, extra, 
   );
 }
 
-// ---- 表示状態バッジ（読み取り専用・リスト用）----
+// ---- 表示状態バッジ（読み取り専用・誤タップ防止のため非インタラクティブ）----
 function VisibilityBadge({ id, hiddenProducts }) {
   const hidden = !!hiddenProducts?.[id];
   return <span className={`vis-badge${hidden ? ' hidden' : ''}`}>{hidden ? '非表示' : '表示中'}</span>;
 }
 
-// ---- 表示トグルボタン（編集フォーム専用）----
+// ---- 表示トグルボタン（編集フォーム内でのみ使用）----
 function VisibilityToggle({ id, hiddenProducts, toggleVisibility }) {
   const hidden = !!hiddenProducts?.[id];
   return (
     <button type="button" className={`vis-toggle${hidden ? ' hidden' : ''}`}
+      // onTouchEnd + preventDefault でキーボードが開いていても1タップで反応する (iOS対策)
       onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); toggleVisibility(id); }}
       onClick={(e)    => { e.stopPropagation(); toggleVisibility(id); }}
     >{hidden ? '非表示' : '表示中'}</button>
@@ -243,6 +278,7 @@ function VisibilityToggle({ id, hiddenProducts, toggleVisibility }) {
 // ---- オーダードリンク管理 ----
 function OrderManager({ products, post, iconColors, saveIconColor, hiddenProducts, toggleVisibility, saveManageOrder }) {
   const orderProds = products.filter(p => p.type === 'order');
+  // GAS保存コールバックを useSortList に渡す（失敗しても UI に影響しない）
   const onOrderChange = useCallback(o => saveManageOrder?.('order', o), [saveManageOrder]);
   const [order, setOrder] = useSortList('manageOrderList', orderProds, onOrderChange);
   const [editing, setEditing]   = useState(null);
@@ -256,6 +292,7 @@ function OrderManager({ products, post, iconColors, saveIconColor, hiddenProduct
     await post('deleteProduct', { id });
   }, [post]);
 
+  // InteractiveItem から長押し通知を受けたらドラッグを開始する
   const handleLongPress = useCallback((idx, y) => {
     startDragAt(idx, y);
   }, [startDragAt]);
@@ -272,6 +309,7 @@ function OrderManager({ products, post, iconColors, saveIconColor, hiddenProduct
       <div ref={listRef}>
         {orderedItems.map((p, idx) => (
           <div key={p.id}>
+            {/* ドラッグ中かつここがターゲット位置なら挿入ラインを表示 */}
             {dragIdx !== -1 && gapIdx === idx && <div className="sort-drop-line" />}
             <InteractiveItem
               idx={idx}
@@ -286,9 +324,11 @@ function OrderManager({ products, post, iconColors, saveIconColor, hiddenProduct
             </InteractiveItem>
           </div>
         ))}
+        {/* リスト末尾への挿入ライン */}
         {dragIdx !== -1 && gapIdx === orderedItems.length && <div className="sort-drop-line" />}
       </div>
 
+      {/* ドラッグゴースト：fixed 配置でスクロールに追従しないよう portal でbody直下に描画 */}
       {ghostY !== null && dragIdx >= 0 && orderedItems[dragIdx] && createPortal(
         <div className="sort-drag-ghost" style={{ top: ghostY }}>
           <span className="list-item-color-dot" style={{ background: iconColors?.[orderedItems[dragIdx].id] || '#54A0FF', flexShrink: 0 }} />
@@ -312,6 +352,7 @@ function OrderForm({ product, post, iconColors, saveIconColor, hiddenProducts, t
   const [name,  setName]  = useState(product?.name  || '');
   const [color, setColor] = useState(() => (product ? iconColors?.[product.id] : null) || ICON_COLORS[3]);
 
+  // フォームを閉じてから非同期保存（キーボードを即座に閉じるため先にUIを閉じる）
   const doSave = useCallback(() => {
     if (!name.trim()) return;
     if (product) saveIconColor(product.id, color);
@@ -320,6 +361,7 @@ function OrderForm({ product, post, iconColors, saveIconColor, hiddenProducts, t
     if (product) {
       post('updateProduct', { id: product.id, ...payload }).catch(console.error);
     } else {
+      // 新規追加：GASが返す ID を使ってカラーを保存
       post('addProduct', payload).then(res => {
         const newId = res?.id || res?.productId;
         if (newId) saveIconColor(newId, color);
@@ -345,12 +387,14 @@ function OrderForm({ product, post, iconColors, saveIconColor, hiddenProducts, t
                 <button key={c} type="button"
                   className={`color-swatch${color === c ? ' selected' : ''}`}
                   style={{ background: c }}
+                  // onTouchEnd + preventDefault：キーボードが開いた状態でも1タップで色選択できる (iOS対策)
                   onTouchEnd={(e) => { e.preventDefault(); setColor(c); }}
                   onClick={() => setColor(c)}
                 />
               ))}
             </div>
           </div>
+          {/* 表示設定は既存商品のみ（新規は追加後に編集から変更） */}
           {product && (
             <div className="form-group">
               <label className="form-label">カウント画面への表示</label>
@@ -359,6 +403,7 @@ function OrderForm({ product, post, iconColors, saveIconColor, hiddenProducts, t
           )}
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>キャンセル</button>
+            {/* onTouchEnd で保存：type="submit" + form を使わないのは iOS のキーボード閉じバグ回避のため */}
             <button type="button" className="btn btn-primary"
               onTouchEnd={(e) => { e.preventDefault(); doSave(); }}
               onClick={doSave}
@@ -371,7 +416,7 @@ function OrderForm({ product, post, iconColors, saveIconColor, hiddenProducts, t
   );
 }
 
-// ---- フリードリンク管理 ----
+// ---- フリードリンク管理（OrderManager と同構造）----
 function FreeManager({ products, post, hiddenProducts, toggleVisibility, saveManageOrder }) {
   const freeProds = products.filter(p => p.type === 'free');
   const onOrderChange = useCallback(o => saveManageOrder?.('free', o), [saveManageOrder]);
@@ -449,6 +494,7 @@ function FreeForm({ product, post, hiddenProducts, toggleVisibility, onClose }) 
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const refs = useRef([]);
+  // Enter キーで次フィールドへ移動（最後はキーボードを閉じる）
   const onKey = (e, idx) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();

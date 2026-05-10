@@ -994,9 +994,14 @@ body {
   border: 1px solid rgba(220, 220, 230, 0.8);
   border-radius: var(--radius);
   box-shadow: 0 2px 12px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
-  transition: transform 0.18s ease;
+  transition: transform 0.18s ease, background-color 0.2s ease;
   gap: 10px;
   cursor: pointer;
+}
+/* タップ中のプレスハイライト：即座に反応し、離したら 0.2s でフェードバック */
+.swipe-item-content.pressed {
+  background: #EBEBF0;
+  transition: transform 0.18s ease; /* background の transition を切って即座にハイライト */
 }
 
 .swipe-item-body { flex: 1; min-width: 0; }
