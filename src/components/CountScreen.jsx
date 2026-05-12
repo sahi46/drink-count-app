@@ -42,7 +42,7 @@ function buildPositions(saved, prods) {
   return result;
 }
 
-export default function CountScreen({ products, todayOrders, iconPositions, iconColors, hiddenProducts, savePositions, updateOrderCount }) {
+export default function CountScreen({ products, todayOrders, iconPositions, iconColors, hiddenProducts, savePositions, updateOrderCount, post }) {
   // 非表示設定の商品はカウント画面に出さない
   const orderProds = products.filter(p => p.type === 'order' && !hiddenProducts?.[p.id]);
   const productIds = orderProds.map(p => p.id).join(',');
@@ -77,6 +77,12 @@ export default function CountScreen({ products, todayOrders, iconPositions, icon
   }, [productIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const today = new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' });
+
+  // カウントを手動リセットする。GAS 側で activeDate を今日に更新し、今日分のレコードを削除する。
+  const handleReset = async () => {
+    if (!window.confirm('カウントをリセットしますか？')) return;
+    await post('resetOrders', {});
+  };
 
   // ---- 通常モード：長押し (600ms) でジグルモードへ ----
   const pressOrigin = useRef(null);
@@ -206,7 +212,12 @@ export default function CountScreen({ products, todayOrders, iconPositions, icon
         <h1>オーダーカウント</h1>
         {jiggling
           ? <button className="done-btn" onClick={stopJiggling}>完了</button>
-          : <span className="screen-date">{today}</span>
+          : (
+            <div className="header-right">
+              <button className="count-reset-btn" onClick={handleReset}>リセット</button>
+              <span className="screen-date">{today}</span>
+            </div>
+          )
         }
       </div>
 
